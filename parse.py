@@ -44,7 +44,6 @@ if __name__ == "__main__":
 
     with open(fpath, "r") as f:
         for n, line in enumerate(f):
-
             for token in line.strip().split():
 
                 # comments
@@ -61,19 +60,19 @@ if __name__ == "__main__":
                 if token == "${":
                     stack.append([])
                 if token == "$}":
-                    db.append(["${", stack.pop(), "$}"])
+                    block = stack.pop()
+                    stack[-1].append(["${", block, "$}"])
 
                 # non-labeled declarations
                 if token in ("$c", "$v", "$d"):
                     stack[-1].append([token, []])
+                    symbol_list = True
 
                 # labeled statements
                 if token in ("$f", "$e", "$a", "$p"):
                     assert label != None, \
                            f"line {n+1}: {token} not preceded by label"
                     stack[-1].append([label, token, []])
-
-                if token in ("$c", "$v", "$d", "$f", "$e", "$a", "$p"):
                     symbol_list = True
 
                 if token == "$=":
