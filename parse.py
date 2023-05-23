@@ -10,93 +10,164 @@ data structure:
     scopes? constants? variables? proofs?
 
 """
+from collections import namedtuple
 import numpy as np
 import os
 
-def dbprint(db, prefix=""):
-    for rec in db:
-        if rec[0] == "${":
-            print(prefix + "${")
-            dbprint(rec[1], prefix + " ")
-            print(prefix + "$}")
+class TokList(list):
+    def __repr__(self):
+        return "'" + " ".join(self) + "'"
 
-        elif rec[0] in ("$c", "$v", "$d"):
-            print(f"{prefix}{rec[0]} {' '.join(rec[1])} $.")
+Declaration = namedtuple("Declaration", ("block", "tag", "symbols"))
+Hypothesis = namedtuple("Hypothesis", ("block", "label", "tag", "symbols"))
+Axiom = namedtuple("Axiom", ("block", "label", "tag", "symbols"))
+Proposition = namedtuple("Proposition", ("block", "label", "tag", "symbols", "proof"))
+Scope = namedtuple("Scope", ("c", "v", "d", "f", "e"))
 
-        elif rec[1] in ("$f", "$e", "$a"):
-            print(f"{prefix}{rec[0]} {rec[1]} {' '.join(rec[2])} $.")
+class Block:
+    def __init__(self, parent):
+        self.parent = parent
+        self.children = []
 
-        elif rec[1] == "$p":
-            print(f"{prefix}{rec[0]} {rec[1]} {' '.join(rec[2])} $= {' '.join(rec[3])} $.")
+    def __repr__(self):
+        return "${...$}"
 
-if __name__ == "__main__":
+    def parent_block(self):
+        return self.parent
 
-    fpath = os.path.join(os.environ["HOME"], "metamath", "set.mm")
-    # fpath = 'badparse.mm'
+    def add_sub_block(self):
+        self.children.append(Block(parent = self))
+        return self.children[-1]
 
-    db = [] # nested list of all declarations and statements
-    stack = [db] # current scope stack
-    comment = False # True if currently in a comment
-    symbol_list = False # True if currently in a symbol list
-    proof = False # True if currently in a proof
-    label = None # most recently defined label
-    num_statements = 0
+    def add_statement(self, statement):
+        self.children.append(statement)
+
+    def get_scope(self, statement=None):
+        if self.parent == None:
+            scope = Scope([], [], [], [], [])
+        else:
+            scope = self.parent.get_scope()
+
+        for child in self.children:
+            if type(child) == Block: continue
+            if child == statement: break
+            if child.tag == "$c": scope.c.extend(child.symbols)
+            if child.tag == "$v": scope.v.extend(child.symbols)
+            if child.tag == "$f": scope.f.append(child)
+            if child.tag == "$e": scope.e.append(child)
+
+        return scope
+
+    def print(self, prefix):
+        for child in self.children:
+            if type(child) == Block:
+                print(prefix + "${")
+                child.print(prefix + " ")
+                print(prefix + "$}")
+
+            if type(child) == Declaration:
+                print(f"{prefix}{child.tag} {child.symbols} $.")
+    
+            if type(child) == Hypothesis:
+                print(f"{prefix}{child.label} {child.tag} {child.symbols} $.")
+    
+            if type(child) == Proposition:
+                print(f"{prefix}{child.label} {child.tag} {child.symbols} $= {child.proof} $.")
+
+class Database:
+    def __init__(self):
+        self.root_block = Block(parent=None)
+        self.statements = {} # looks up statements by label
+    def get_statement(self, label):
+        return self.statements[label]
+    def print(self):
+        self.root_block.print(prefix = "")
+
+def parse(fpath):
+
+    db = Database()
+    block = db.root_block # current database block
+
+    # parser state
+    in_comment = False # True if currently in a comment
+    in_symbol_list = False # True if currently in a symbol list
+    in_proof = False # True if currently in a proof
+    label = None # most recent label
+    statement = None # most recent statement
 
     with open(fpath, "r") as f:
         for n, line in enumerate(f):
             for token in line.strip().split():
 
                 # comments
-                if token == "$(": comment = True
-                if token == "$)": comment = False
-                if comment: continue
+                if token == "$(": in_comment = True
+                if token == "$)": in_comment = False
+                if in_comment: continue
 
                 # end of symbol lists or proofs
                 if token == "$.":
-                    symbol_list = proof = False
-                    num_statements += 1
+                    in_symbol_list = in_proof = False
 
                 # scope
                 if token == "${":
-                    stack.append([])
+                    block = block.add_sub_block()
                 if token == "$}":
-                    block = stack.pop()
-                    stack[-1].append(["${", block, "$}"])
+                    block = block.parent_block()
 
-                # non-labeled declarations
+                # declarations
                 if token in ("$c", "$v", "$d"):
-                    stack[-1].append([token, []])
-                    symbol_list = True
+                    statement = Declaration(block, token, TokList())
+                    block.add_statement(statement)
+                    in_symbol_list = True
 
                 # labeled statements
                 if token in ("$f", "$e", "$a", "$p"):
                     assert label != None, \
                            f"line {n+1}: {token} not preceded by label"
-                    stack[-1].append([label, token, []])
-                    symbol_list = True
+
+                    if token == "$p":
+                        statement = Proposition(block, label, token, TokList(), TokList())
+                    elif token == "$a":
+                        statement = Axiom(block, label, token, TokList())
+                    else:
+                        statement = Hypothesis(block, label, token, TokList())
+
+                    block.add_statement(statement)
+                    db.statements[label] = statement
+                    in_symbol_list = True
 
                 if token == "$=":
-                    symbol_list = False
-                    proof = True
-                    # stack > block > statement: append list for proof tokens
-                    stack[-1][-1].append([])
+                    in_symbol_list = False
+                    in_proof = True
+                    assert type(statement) == Proposition, \
+                           f"line {n+1}: non-proposition with a proof"
 
                 if token[0] != "$":
-
                     assert "$" not in token, \
                            f"line {n+1}: '$' not allowed in middle of {token}"
 
-                    if symbol_list or proof:
-                        # stack > block > statement > list: append token to symbol or proof list
-                        stack[-1][-1][-1].append(token)
+                    if in_symbol_list:
+                        statement.symbols.append(token)
+                    elif in_proof:
+                        statement.proof.append(token)
                     else:
                         label = token
 
+    return db
+
+if __name__ == "__main__":
+
+    fpath = os.path.join(os.environ["HOME"], "metamath", "set.mm")
+    # fpath = 'badparse.mm'
+
+    db = parse(fpath)
 
     # print(db)
-    dbprint(db[-100:])
+    # dbprint(db[-100:])
+    db.root_block.children = db.root_block.children[-100:]
+    db.print()
 
-    print(f"{num_statements} statements total")
+    print(f"{len(db.statements)} statements total")
     
 
     # ### numpy stuff
