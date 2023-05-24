@@ -1,0 +1,17 @@
+bigger scope class
+    can construct it from a starting point like current method
+    can push/pop from it while scanning database similar to mmverify.py
+
+new inference data structure
+    an inference does this:
+        match all hyps of existing rule against a list of dependencies
+            dependencies can be floating/essential hypotheses or other proved a/p statements
+        apply match substitution to conclusion of existing rule
+        have a new rule with the substituted conclusion and hypotheses based on dependencies
+            all floating/essential dependencies
+            all floating/essential leaves used in proving a/p dependencies?
+    an inference data structure maintains this:
+        pointer to the existing rule used as justification
+        pointer to the newly created rule
+        the substitution that created it
+

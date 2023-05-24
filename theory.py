@@ -33,7 +33,7 @@ if __name__ == "__main__":
     print(thm.label, thm.tag, thm.symbols)
 
     # get scope
-    scope = thm.block.get_scope()
+    scope = thm.block.get_scope(thm)
     print(scope)
 
     print("\n" + "*"*8 + "\n")
