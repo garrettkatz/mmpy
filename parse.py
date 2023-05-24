@@ -38,15 +38,15 @@ class Block:
     def add_statement(self, statement):
         self.children.append(statement)
 
-    def get_scope(self, statement=None):
+    def get_scope(self, statement):
         if self.parent == None:
             scope = Scope([], [], [], [], [])
         else:
-            scope = self.parent.get_scope()
+            scope = self.parent.get_scope(self)
 
         for child in self.children:
+            if child is statement: break
             if type(child) == Block: continue
-            if child == statement: break
             if child.tag == "$c": scope.c.extend(child.symbols)
             if child.tag == "$v": scope.v.extend(child.symbols)
             if child.tag == "$f": scope.f.append(child)

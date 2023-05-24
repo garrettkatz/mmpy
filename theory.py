@@ -19,7 +19,7 @@ class Inference:
     def print(self, label="", prefix=""):
         subst = {key: " ".join(val) for key, val in substitution.items()}
         # print(f"{prefix}[{label} <= {self.rule.label}] {' '.join(self.conclusion)} <= {' '.join(self.rule.symbols)}")
-        print(f"{prefix}[{label} <= {self.rule.label}] {' '.join(self.conclusion)}")
+        print(f"{prefix}[{label} <= {self.rule.label}] {' '.join(self.conclusion)} {subst}")
         for lab, dep in self.dependencies.items():
             dep.print(lab, prefix + " ")
 
