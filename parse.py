@@ -14,10 +14,6 @@ from collections import namedtuple
 import numpy as np
 import os
 
-class TokList(list):
-    def __repr__(self):
-        return "'" + " ".join(self) + "'"
-
 Declaration = namedtuple("Declaration", ("block", "tag", "symbols"))
 Hypothesis = namedtuple("Hypothesis", ("block", "label", "tag", "symbols"))
 Axiom = namedtuple("Axiom", ("block", "label", "tag", "symbols"))
@@ -66,13 +62,13 @@ class Block:
                 print(prefix + "$}")
 
             if type(child) == Declaration:
-                print(f"{prefix}{child.tag} {child.symbols} $.")
+                print(f"{prefix}{child.tag} {' '.join(child.symbols)} $.")
     
             if type(child) == Hypothesis:
-                print(f"{prefix}{child.label} {child.tag} {child.symbols} $.")
+                print(f"{prefix}{child.label} {child.tag} {' '.join(child.symbols)} $.")
     
             if type(child) == Proposition:
-                print(f"{prefix}{child.label} {child.tag} {child.symbols} $= {child.proof} $.")
+                print(f"{prefix}{child.label} {child.tag} {' '.join(child.symbols)} $= {' '.join(child.proof)} $.")
 
 class Database:
     def __init__(self):
@@ -116,7 +112,7 @@ def parse(fpath):
 
                 # declarations
                 if token in ("$c", "$v", "$d"):
-                    statement = Declaration(block, token, TokList())
+                    statement = Declaration(block, token, [])
                     block.add_statement(statement)
                     in_symbol_list = True
 
@@ -126,11 +122,11 @@ def parse(fpath):
                            f"line {n+1}: {token} not preceded by label"
 
                     if token == "$p":
-                        statement = Proposition(block, label, token, TokList(), TokList())
+                        statement = Proposition(block, label, token, [], [])
                     elif token == "$a":
-                        statement = Axiom(block, label, token, TokList())
+                        statement = Axiom(block, label, token, [])
                     else:
-                        statement = Hypothesis(block, label, token, TokList())
+                        statement = Hypothesis(block, label, token, [])
 
                     block.add_statement(statement)
                     db.statements[label] = statement

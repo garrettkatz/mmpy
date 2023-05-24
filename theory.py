@@ -2,7 +2,7 @@ import os
 from parse import *
 
 def substitute(symbols, substitution):
-    result = TokList()
+    result = []
     for symbol in symbols:
         result.extend(substitution.get(symbol, [symbol]))
     return result
@@ -15,7 +15,13 @@ class Inference:
         self.substitution = substitution # substitution that matches them
         self.conclusion = substitute(rule.symbols, substitution)
     def __repr__(self):
-        return f"{self.rule.label} {self.conclusion}"
+        return f"{self.rule.label} {' '.join(self.conclusion)}"
+    def print(self, label="", prefix=""):
+        subst = {key: " ".join(val) for key, val in substitution.items()}
+        # print(f"{prefix}[{label} <= {self.rule.label}] {' '.join(self.conclusion)} <= {' '.join(self.rule.symbols)}")
+        print(f"{prefix}[{label} <= {self.rule.label}] {' '.join(self.conclusion)}")
+        for lab, dep in self.dependencies.items():
+            dep.print(lab, prefix + " ")
 
 if __name__ == "__main__":
 
@@ -23,7 +29,7 @@ if __name__ == "__main__":
     fpath = "p2.mm"
     db = parse(fpath)
     db.print()
-    thm = db.get_statement('a1i')
+    thm = db.get_statement('mpd')
     print(thm.label, thm.tag, thm.symbols)
 
     # get scope
@@ -41,7 +47,7 @@ if __name__ == "__main__":
         print(rule)
 
         if type(rule) == Hypothesis:
-            inf = Inference(rule, [], {})
+            inf = Inference(rule, {}, {})
             stack.append(inf)
 
         if type(rule) in (Axiom, Proposition):
@@ -75,6 +81,7 @@ if __name__ == "__main__":
                     assert dep.conclusion == substitute(hyp.symbols, substitution), \
                            f"step {s} {label}: {s_hyp.symbols} != subst({hyp.symbols}, {substitution})"
 
+            dependencies = {hyp.label: dep for (hyp, dep) in zip(hypotheses, dependencies)}
             inf = Inference(rule, dependencies, substitution)
             stack.append(inf)
 
@@ -83,5 +90,8 @@ if __name__ == "__main__":
 
     assert len(stack) == 1, f"non-singleton stack {stack} after proof"
     assert stack[0].conclusion == thm.symbols, f"proved statement {stack[0].conclusion} does not match theorem {thm.symbols}"
+
+    root_inf = stack[0]
+    root_inf.print(thm.label)
 
 
