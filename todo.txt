@@ -10,6 +10,8 @@ new inference data structure
         have a new rule with the substituted conclusion and hypotheses based on dependencies
             all floating/essential dependencies
             all floating/essential leaves used in proving a/p dependencies?
+            not really "new" if match substitution was identity
+            may need to normalize conclusion (rename variables alphabetically) to catch equivalent rules
     an inference data structure maintains this:
         pointer to the existing rule used as justification
         pointer to the newly created rule

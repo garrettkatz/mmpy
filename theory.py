@@ -29,7 +29,7 @@ if __name__ == "__main__":
     fpath = "p2.mm"
     db = parse(fpath)
     db.print()
-    thm = db.get_statement('mpd')
+    thm = db.get_statement('syl')
     print(thm.label, thm.tag, thm.symbols)
 
     # get scope
