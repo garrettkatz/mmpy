@@ -1,6 +1,4 @@
-don't clobber "conclusion" in rule and inference
-filter out inactive floating hypotheses from rules during db construction, not proof verification
-eliminate get_scope to use rules instead
+cleanup and testing for database and theory
 
 rule:
     is this:
