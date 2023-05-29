@@ -29,7 +29,8 @@ if __name__ == "__main__":
     fpath = "p2.mm"
     db = parse(fpath)
     db.print()
-    thm = db.get_statement('syl')
+    # thm = db.get_statement('syl')
+    thm = db.get_statement('mpd')
     print(thm.label, thm.tag, thm.symbols)
 
     # get scope
@@ -41,21 +42,22 @@ if __name__ == "__main__":
     # build uncompressed proof
     stack = []
     for s,label in enumerate(thm.proof):
-        rule = db.get_statement(label)
-        print(f"\n{s}")
+        rule = db.get_rule(label)
+        conclusion = db.get_statement(label)
+            print(f"\n{s}")
         print(stack)
-        print(rule)
+        print(conclusion)
 
-        if type(rule) == Hypothesis:
-            inf = Inference(rule, {}, {})
+        if type(conclusion) == Hypothesis:
+            inf = Inference(conclusion, {}, {})
             stack.append(inf)
 
-        if type(rule) in (Axiom, Proposition):
+        if type(conclusion) in (Axiom, Proposition):
 
-            scope = rule.block.get_scope(rule)
+            scope = conclusion.block.get_scope(conclusion)
 
             # remove floating hypotheses for irrelevant variables
-            variables = set(rule.symbols)
+            variables = set(conclusion.symbols)
             for e in scope.e: variables.update(e.symbols)
             variables.intersection_update(scope.v)
             floats = [f for f in scope.f if f.symbols[1] in variables]
@@ -82,7 +84,7 @@ if __name__ == "__main__":
                            f"step {s} {label}: {s_hyp.symbols} != subst({hyp.symbols}, {substitution})"
 
             dependencies = {hyp.label: dep for (hyp, dep) in zip(hypotheses, dependencies)}
-            inf = Inference(rule, dependencies, substitution)
+            inf = Inference(conclusion, dependencies, substitution)
             stack.append(inf)
 
     print(f"\nend:")

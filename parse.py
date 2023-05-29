@@ -20,6 +20,11 @@ Axiom = namedtuple("Axiom", ("block", "label", "tag", "symbols"))
 Proposition = namedtuple("Proposition", ("block", "label", "tag", "symbols", "proof"))
 Scope = namedtuple("Scope", ("c", "v", "d", "f", "e"))
 
+class Rule:
+    def __init__(self, conclusion_label, hypothesis_labels):
+        self.conclusion = conclusion_label
+        self.hypotheses = hypothesis_labels
+
 class Block:
     def __init__(self, parent):
         self.parent = parent
@@ -35,8 +40,19 @@ class Block:
         self.children.append(Block(parent = self))
         return self.children[-1]
 
-    def add_statement(self, statement):
+    def add_statement(self, tag, label=None):
+
+        if tag in ("$c", "$v", "$d"):
+            statement = Declaration(self, tag, [])
+        elif tag == "$p":
+            statement = Proposition(self, label, tag, [], [])
+        elif tag == "$a":
+            statement = Axiom(self, label, tag, [])
+        else:
+            statement = Hypothesis(self, label, tag, [])
+
         self.children.append(statement)
+        return statement
 
     def get_scope(self, statement):
         if self.parent == None:
@@ -74,8 +90,11 @@ class Database:
     def __init__(self):
         self.root_block = Block(parent=None)
         self.statements = {} # looks up statements by label
+        self.rules = {} # looks up rules by conclusion's label
     def get_statement(self, label):
         return self.statements[label]
+    def get_rule(self, label):
+        return self.rules[label]
     def print(self):
         self.root_block.print(prefix = "")
 
@@ -90,6 +109,7 @@ def parse(fpath):
     in_proof = False # True if currently in a proof
     label = None # most recent label
     statement = None # most recent statement
+    hypotheses = [[]] # stack of hypotheses in current scope
 
     with open(fpath, "r") as f:
         for n, line in enumerate(f):
@@ -107,13 +127,14 @@ def parse(fpath):
                 # scope
                 if token == "${":
                     block = block.add_sub_block()
+                    hypotheses.append([])
                 if token == "$}":
                     block = block.parent_block()
+                    hypotheses.pop()
 
                 # declarations
                 if token in ("$c", "$v", "$d"):
-                    statement = Declaration(block, token, [])
-                    block.add_statement(statement)
+                    statement = block.add_statement(tag=token, label=None)
                     in_symbol_list = True
 
                 # labeled statements
@@ -121,16 +142,15 @@ def parse(fpath):
                     assert label != None, \
                            f"line {n+1}: {token} not preceded by label"
 
-                    if token == "$p":
-                        statement = Proposition(block, label, token, [], [])
-                    elif token == "$a":
-                        statement = Axiom(block, label, token, [])
-                    else:
-                        statement = Hypothesis(block, label, token, [])
-
-                    block.add_statement(statement)
+                    statement = block.add_statement(tag=token, label=label)
                     db.statements[label] = statement
                     in_symbol_list = True
+
+                    if token in ("$f", "$e"):
+                        hypotheses[-1].append(label)
+                    else:
+                        hyps = [lab for hyps in hypotheses for lab in hyps]
+                        db.rules[label] = Rule(label, hyps)
 
                 if token == "$=":
                     in_symbol_list = False

@@ -1,19 +1,33 @@
-bigger scope class
-    can construct it from a starting point like current method
-    can push/pop from it while scanning database similar to mmverify.py
+don't clobber "conclusion" in rule and inference
+filter out inactive floating hypotheses from rules during db construction, not proof verification
+eliminate get_scope to use rules instead
 
-new inference data structure
+rule:
+    is this:
+        list of floating/essential hypotheses and conclusion
+    rule data structure instead of scope:
+        each rule has pointers to the hypotheses etc. in its scope.
+
+inference:
     an inference does this:
         match all hyps of existing rule against a list of dependencies
             dependencies can be floating/essential hypotheses or other proved a/p statements
         apply match substitution to conclusion of existing rule
-        have a new rule with the substituted conclusion and hypotheses based on dependencies
-            all floating/essential dependencies
-            all floating/essential leaves used in proving a/p dependencies?
-            not really "new" if match substitution was identity
-            may need to normalize conclusion (rename variables alphabetically) to catch equivalent rules
     an inference data structure maintains this:
         pointer to the existing rule used as justification
-        pointer to the newly created rule
-        the substitution that created it
+        pointer to the conclusion with substitution applied
+        pointer to the dependencies
+        the substitution itself
 
+proof of a rule:
+    bipartite graph of statements and inferences
+        one inference per statement (its conclusion)
+    leaves are the rule's hypotheses, or hypothesis-less rule conclusions (axioms and theorems)
+
+any statement in a proof can be viewed as a set of "new" rules
+    the statement is the conclusion of the new rules
+    the hypotheses of the new rules are any frontier of statements in a graph search backwards from the conclusion
+        excluding axioms, they do not need to be listed as essential hypotheses of the new rules
+    not all really new if
+        match substitution was identity
+        or it "standardizes" to an existing rule (same after renaming variables alphabetically)
