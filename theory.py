@@ -37,7 +37,7 @@ if __name__ == "__main__":
     # thm = db.get_statement('syl')
     thm = db.rules['mpd']
     stmt = db.statements[thm.consequent]
-    db.print_rule(thm)
+    thm.print()
 
     print("\n" + "*"*8 + "\n")
 
@@ -49,7 +49,7 @@ if __name__ == "__main__":
         print(stack)
 
         if statement.tag in ("$f", "$e"):
-            rule = Rule(label, [], [])
+            rule = Rule(db, label, [], [])
             inf = Inference(db, rule, {}, {})
             stack.append(inf)
 

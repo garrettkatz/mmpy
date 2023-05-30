@@ -1,19 +1,30 @@
-"""
-data structure:
-
-    label -> floating | essential | axiom | proposition
-    floating: (label, symbol, type)
-    essential: (label, symbols)
-    axiom: (label, symbols)
-    proposition: (label, symbols, hypotheses, proof)
-
-    scopes? constants? variables? proofs?
-
-"""
 from collections import namedtuple
 
+"""
+Statement
+    label: the label of the statement (str)
+    tag: the type of statement ("$p", "$a", etc., str)
+    tokens[n]: the nth token in the statement math symbol string (str)
+    proof[n]: the nth token in the proof (str)
+Rule:
+    consequent: the label of the rule's conclusion statement (str)
+    essentials[n]: the label of the nth essential hypothesis (str)
+    floatings[n]: the label of the nth floating hypothesis (str)
+Frame:
+    frame[tag][n]: the nth
+        constant or variable symbol if tag in "cv"
+        list of disjoint variables if tag is "d"
+        hypothesis if tag in "ef"
+"""
 Statement = namedtuple("Statement", ("label", "tag", "tokens", "proof"))
-Rule = namedtuple("Rule", ("consequent", "essentials", "floatings"))
+
+class Rule(namedtuple("Rule", ("database", "consequent", "essentials", "floatings"))):
+    def print(self):
+        consequent = self.database.statements[self.consequent]
+        print(f"{consequent.label} {consequent.tag} {' '.join(consequent.tokens)} $.")
+        for label in self.floatings + self.essentials:
+            hypothesis = self.database.statements[label]
+            print(f"  {hypothesis.label} {hypothesis.tag} {' '.join(hypothesis.tokens)} $.")
 
 def new_frame(): return {tag: [] for tag in "cvdfe"}
 
@@ -22,18 +33,11 @@ class Database:
         self.statements = {} # looks up statements by label
         self.rules = {} # looks up rules by consequent's label
 
-    def print_rule(self, rule):
-        consequent = self.statements[rule.consequent]
-        print(f"{consequent.label} {consequent.tag} {' '.join(consequent.tokens)} $.")
-        for label in rule.floatings + rule.essentials:
-            hypothesis = self.statements[label]
-            print(f"  {hypothesis.label} {hypothesis.tag} {' '.join(hypothesis.tokens)} $.")
-
     def print(self, start=0):
         if start < 0: start = len(self.rules) + start
         for r, rule in enumerate(self.rules.values()):
             if r < start: continue
-            self.print_rule(rule)
+            rule.print()
 
 def parse(fpath):
 
@@ -65,15 +69,15 @@ def parse(fpath):
                 if token == "$)": in_comment = False
                 if in_comment: continue
 
-                # scope
+                # update scope
                 if token == "${": frames.append(new_frame())
                 if token == "$}": frames.pop()
 
-                # declarations
+                # initialize declarations
                 if token in ("$c", "$v", "$d"):
                     statement = Statement(label, token, [], [])
 
-                # labeled statements
+                # initialize labeled statements
                 if token in ("$f", "$e", "$a", "$p"):
                     assert label != None, \
                            f"line {n+1}: {token} not preceded by label"
@@ -81,7 +85,7 @@ def parse(fpath):
                     statement = Statement(label, token, [], [])
                     db.statements[label] = statement
 
-                # non-tag tokens
+                # handle non-tag tokens
                 if token[0] != "$":
 
                     # update label
@@ -94,7 +98,7 @@ def parse(fpath):
                         elif current_tag == "=":
                             statement.proof.append(token)
 
-                # handle completed statements
+                # handle completed statements and rules
                 if token == "$.":
 
                     # update frame
@@ -111,13 +115,13 @@ def parse(fpath):
     
                     # add completed rules to database
                     if current_tag == "f": 
-                        rule = Rule(statement.label, [], [])
+                        rule = Rule(db, statement.label, [], [])
                         db.rules[rule.consequent] = rule
 
                     if current_tag in "a=":
 
                         # initialize new rule
-                        rule = Rule(statement.label, [], [])
+                        rule = Rule(db, statement.label, [], [])
 
                         # get mandatory variables
                         tokens = set(statement.tokens)
@@ -140,7 +144,7 @@ def parse(fpath):
 
                 # update current tag
                 if token[0] == "$" and token[1] not in "()": current_tag = token[1]
-                if current_tag is not None and current_tag in ".}": current_tag = None
+                if current_tag in ("$.", "$}"): current_tag = None
 
     return db
 
@@ -150,12 +154,12 @@ if __name__ == "__main__":
 
     fpath = os.path.join(os.environ["HOME"], "metamath", "set.mm")
     # fpath = 'badparse.mm'
-    fpath = "p2.mm"
+    # fpath = "p2.mm"
 
     db = parse(fpath)
 
-    # db.print(start=-3)
-    db.print()
+    db.print(start=-3)
+    # db.print()
     print(f"{len(db.statements)} statements total, {len(db.rules)} rules total")
 
     # for (label, stmt) in db.statements.items():

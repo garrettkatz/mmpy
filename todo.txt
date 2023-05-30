@@ -1,4 +1,5 @@
-cleanup and testing for database and theory
+cleanup theory
+test database and theory
 
 rule:
     is this:
