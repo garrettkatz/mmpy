@@ -1,4 +1,5 @@
-cleanup theory
+compressed proofs
+disjoint var reqs
 test database and theory
 
 rule:
