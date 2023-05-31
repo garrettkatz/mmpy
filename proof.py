@@ -127,6 +127,23 @@ def verify_proof(database, claim):
     # return root of proof graph and dictionary of nodes
     return stack[0], inferences
 
+def verify_compressed_proof(database, claim):
+
+    # extract labels and integer indices of compressed proof
+    split = claim.proof.index(")")
+    step_labels = claim.proof[1:split]
+    ordinals = tuple(map(ord, claim.proof[split+1]))
+    A, U, Z = ord('A'), ord('U'), ord('Z')
+    step_indices = [0]
+    for ordinal in ordinals:
+        if A <= ordinal < U:
+            step_indices[-1] = 20 * step_indices[-1] + (ordinal - A)
+            step_indices.append(0)
+        elif U <= ordinal < Z:
+            step_indices[-1] = 5 * step_indices[-1] + (ordinal - U)
+        else:
+            pass
+
 def verify_all(database):
     for c, claim in enumerate(database.statements.values()):
         if claim.tag != "$p": continue
