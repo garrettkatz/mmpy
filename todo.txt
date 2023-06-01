@@ -1,6 +1,6 @@
-compressed proofs
-disjoint var reqs
-test database and theory
+profile and speedup
+test database and proof
+    mm book 4.2.4 has good test case for $d violation
 
 rule:
     is this:
@@ -20,9 +20,8 @@ inference:
         the substitution itself
 
 proof of a rule:
-    bipartite graph of statements and inferences
-        one inference per statement (its conclusion)
-    leaves are the rule's hypotheses, or hypothesis-less rule conclusions (axioms and theorems)
+    directed graph of inferences, dependencies are the edges
+    leaves are the rule's hypotheses, or hypothesis-less axioms and theorems
 
 any statement in a proof can be viewed as a set of "new" rules
     the statement is the conclusion of the new rules

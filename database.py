@@ -1,4 +1,5 @@
 from collections import namedtuple
+import itertools as it
 
 """
 Statement
@@ -7,9 +8,9 @@ Statement
     tokens[n]: the nth token in the statement math symbol string (str)
     proof[n]: the nth token in the proof (str)
 Rule:
-    consequent: the label of the rule's conclusion statement (str)
-    essentials[n]: the label of the nth essential hypothesis (str)
-    floatings[n]: the label of the nth floating hypothesis (str)
+    consequent: the rule's conclusion statement
+    essentials[n]: the nth essential hypothesis statement
+    floatings[n]: the nth floating hypothesis statement
 Frame:
     frame[tag][n]: the nth
         constant or variable symbol if tag in "cv"
@@ -18,12 +19,11 @@ Frame:
 """
 Statement = namedtuple("Statement", ("label", "tag", "tokens", "proof"))
 
-class Rule(namedtuple("Rule", ("database", "consequent", "essentials", "floatings"))):
+class Rule(namedtuple("Rule", ("consequent", "essentials", "floatings", "disjoint", "variables"))):
     def print(self):
-        consequent = self.database.statements[self.consequent]
-        print(f"{consequent.label} {consequent.tag} {' '.join(consequent.tokens)} $.")
-        for label in self.floatings + self.essentials:
-            hypothesis = self.database.statements[label]
+        print(f"{self.consequent.label} {self.consequent.tag} {' '.join(self.consequent.tokens)} $.")
+        print(f"disjoint variable sets: {self.disjoint}")
+        for hypothesis in self.floatings + self.essentials:
             print(f"  {hypothesis.label} {hypothesis.tag} {' '.join(hypothesis.tokens)} $.")
 
 def new_frame(): return {tag: [] for tag in "cvdfe"}
@@ -105,42 +105,43 @@ def parse(fpath):
                     if current_tag in "cv":
                         frames[-1][current_tag].extend(statement.tokens)
                     if current_tag == "d":
-                        frames[-1][current_tag].append(statement.tokens)
+                        frames[-1][current_tag].append(sorted(statement.tokens))
                     if current_tag in "fe":
                         frames[-1][current_tag].append(statement)
 
-                    # add completed statement to database
-                    if current_tag in "feap":
+                    # add completed statements to database
+                    if current_tag in "fea=":
+                        rule = Rule(statement, [], [], set(), set())
                         db.statements[statement.label] = statement
+                        db.rules[statement.label] = rule
     
-                    # add completed rules to database
-                    if current_tag == "f": 
-                        rule = Rule(db, statement.label, [], [])
-                        db.rules[rule.consequent] = rule
-
+                    # include scope for axioms and propositions
                     if current_tag in "a=":
 
-                        # initialize new rule
-                        rule = Rule(db, statement.label, [], [])
+                        # get all variables and essential hypotheses in current scope
+                        for frame in frames:
+                            rule.variables.update(frame["v"])
+                            rule.essentials.extend(frame["e"])
 
-                        # get mandatory variables
+                        # identify mandatory variables
                         tokens = set(statement.tokens)
-                        for frame in frames:
-                            for essential in frame["e"]:
-                                tokens.update(essential.tokens)
-                        variables = set([v for frame in frames for v in frame["v"]])
-                        mandatory = variables & tokens
+                        for essential in rule.essentials:
+                            tokens.update(essential.tokens)
+                        mandatory = rule.variables & tokens
 
-                        # get mandatory hypothesis labels
+                        # save mandatory floating hypotheses
                         for frame in frames:
-                            for essential in frame["e"]:
-                                rule.essentials.append(essential.label)
                             for floating in frame["f"]:
                                 if floating.tokens[1] in mandatory:
-                                    rule.floatings.append(floating.label)
+                                    rule.floatings.append(floating)
+
+                        # get disjoint variable pairs
+                        for frame in frames:
+                            for disjoint in frame["d"]:
+                                rule.disjoint.update(it.combinations(disjoint, 2))
 
                         # insert rule into database
-                        db.rules[rule.consequent] = rule
+                        db.rules[rule.consequent.label] = rule
 
                 # update current tag
                 if token[0] == "$" and token[1] not in "()": current_tag = token[1]
