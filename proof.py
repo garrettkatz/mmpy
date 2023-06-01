@@ -99,7 +99,7 @@ def verify_proof(database, claim):
                 # check that substitution unifies dependencies with essential hypotheses
                 if hypothesis.tag == "$e":
                     assert dependency == substitute(hypothesis.tokens, substitution), \
-                           f"step {step} {label}: {dependency} != subst({hypothesis.tokens}, {substitution})"
+                           f"step {step} {label}: {' '.join(dependency)} != subst({' '.join(hypothesis.tokens)}, {substitution})"
 
             # infer conclusion from the rule
             conclusion = substitute(consequent, substitution)
@@ -129,51 +129,197 @@ def verify_proof(database, claim):
 
 def verify_compressed_proof(database, claim):
 
-    # extract labels and integer indices of compressed proof
+    # extract labels and mixed-radix indices of compressed proof
     split = claim.proof.index(")")
     step_labels = claim.proof[1:split]
-    ordinals = tuple(map(ord, claim.proof[split+1]))
+    ordinals = tuple(map(ord, ''.join(claim.proof[split+1:])))
+    print(claim.proof[1:split])
+    print(''.join(claim.proof[split+1:]))
+    print(ordinals)
+
+    # convert to integer indices and save tagged step indices
     A, U, Z = ord('A'), ord('U'), ord('Z')
-    step_indices = [0]
+    tagged_steps = set()
+    step_indices = []
+    step_index = 0
     for ordinal in ordinals:
-        if A <= ordinal < U:
-            step_indices[-1] = 20 * step_indices[-1] + (ordinal - A)
-            step_indices.append(0)
-        elif U <= ordinal < Z:
-            step_indices[-1] = 5 * step_indices[-1] + (ordinal - U)
+        if ordinal < U:
+            step_index = 20 * step_index + (ordinal - A)
+            step_indices.append(step_index)
+            step_index = 0
+        elif ordinal < Z:
+            step_index = 5 * step_index + (ordinal - U)
         else:
-            pass
+            tagged_steps.add(len(step_indices) - 1)
+
+    print(step_indices)
+    print(tagged_steps)
+
+    # setup offsets into hypotheses, labels, and tagged steps
+    claimed_rule = database.rules[claim.label]
+    claim_hypothesis_labels = claimed_rule.floatings + claimed_rule.essentials
+    m = len(claim_hypothesis_labels)
+    n = len(step_labels)
+
+    # initialize stack of proof steps
+    stack = []
+
+    # initialize set of inferences, indexed by conclusion (tupled for hashability)
+    inferences = {}
+
+    # initialize list of proved conclusions
+    tagged_inferences = []
+
+    # process each step in proof
+    for step, index in enumerate(step_indices):
+
+        # print(f"\n{step}")
+        # print(stack)
+
+        # if step is a hypothesis of claim, push onto stack
+        if index < m:
+
+            # get corresponding statement
+            step_label = claim_hypothesis_labels[index]
+            statement = database.statements[step_label]
+
+            # create placeholder inference for hypothesis
+            conclusion = tuple(statement.tokens)
+            rule = Rule(database, step_label, [], [])
+            inferences[conclusion] = Inference(rule, conclusion, {}, {})
+
+            # push onto stack
+            stack.append(inferences[conclusion])
+            print(step, stack[-1])
+
+            # save tagged steps
+            if step in tagged_steps:
+                tagged_inferences.append(inferences[conclusion])
+
+        # if step is a rule, apply to top of stack
+        elif index < m + n:
+
+            # get corresponding statement
+            step_label = step_labels[index - m]
+            statement = database.statements[step_label]
+
+            # look up rule, its consequent, and hypothesis labels
+            rule = db.rules[step_label]
+            consequent = statement.tokens
+            hypothesis_labels = rule.floatings + rule.essentials
+
+            # pop dependencies, one per hypothesis
+            split = len(stack) - len(hypothesis_labels)
+            stack, dependencies = stack[:split], stack[split:]
+            print(step, dependencies)
+
+            # form substitution that unifies hypotheses with dependencies
+            substitution = {}
+            for h, label in enumerate(hypothesis_labels):
+
+                # get current hypothesis and dependency to be unified
+                hypothesis = database.statements[label]
+                dependency = dependencies[h].conclusion
+
+                # update substitution for floating hypotheses
+                if hypothesis.tag == "$f":
+
+                    # check matching types
+                    h_type, d_type = hypothesis.tokens[0], dependency[0]
+                    if h_type != d_type:
+                        print(' '.join(hypothesis.tokens))
+                        print(' '.join(dependency))
+                    assert h_type == d_type, \
+                           f"step {step} {label}: mismatched types {h_type} vs {d_type}"
+
+                    # save replacement tokens
+                    v = hypothesis.tokens[1]
+                    substitution[v] = dependency[1:]
+
+                # check that substitution unifies dependencies with essential hypotheses
+                if hypothesis.tag == "$e":
+                    if dependency != substitute(hypothesis.tokens, substitution):
+                        print(' '.join(dependency))
+                        print(' '.join(hypothesis.tokens))
+                        print(' '.join(substitute(hypothesis.tokens, substitution)))
+                        print({k: ' '.join(v) for k,v in substitution.items()})
+                    assert dependency == substitute(hypothesis.tokens, substitution), \
+                           f"step {step} {label}: {' '.join(dependency)} != subst({' '.join(hypothesis.tokens)}, {substitution})"
+
+            # infer conclusion from the rule
+            conclusion = substitute(consequent, substitution)
+
+            # wrap dependencies in dictionary by hypothesis label
+            dependencies = {h: dep for (h, dep) in zip(hypothesis_labels, dependencies)}
+
+            # construct and save inference
+            inferences[conclusion] = Inference(rule, conclusion, dependencies, substitution)
+
+            # push inference onto stack
+            stack.append(inferences[conclusion])
+
+            # save tagged steps
+            if step in tagged_steps:
+                tagged_inferences.append(inferences[conclusion])
+
+        # if step was already proved, push corresponding tagged inference back onto the stack again
+        else:
+
+            # get previously proved inference
+            inference = tagged_inferences[index - (m + n)]
+
+            # push back onto stack
+            stack.append(inference)
+
+    # check that original claim has been proved
+    assert stack[0].conclusion == tuple(claim.tokens), \
+           f"proved statement {' '.join(stack[0].conclusion)} does not match theorem {' '.join(claim.tokens)}"
+    assert len(stack) == 1, f"non-singleton stack {stack} after proof"
+
+    print(f"\nend:")
+    print(stack)
+
+    # return root of proof graph and dictionary of nodes
+    return stack[0], inferences
 
 def verify_all(database):
+    # verify all claims in the database
     for c, claim in enumerate(database.statements.values()):
+
+        # only verify proposition statements
         if claim.tag != "$p": continue
-        print(c)
-        verify_proof(database, claim)
+        print(claim.label)
+
+        # compressed proofs start with "(" token
+        if claim.proof[0] == "(":
+            verify_compressed_proof(database, claim)
+        else:
+            verify_proof(database, claim)
 
 if __name__ == "__main__":
 
-    import os
     from database import *
 
-    fpath = "p2.mm"
-    db = parse(fpath)
-
-    db.print()
-    thm = db.rules['mpd']
-    thm.print()
-
-    claim = db.statements[thm.consequent]
-    proof_root, proof_nodes = verify_proof(db, claim)
-    proof_root.print(claim.label)
-
-    print("\nall nodes:\n")
-    keys = list(proof_nodes.keys())
-    for k, conclusion in enumerate(keys):
-        inf = proof_nodes[conclusion]
-        edges = [keys.index(dep.conclusion) for dep in inf.dependencies.values()]
-        print(k, " ".join(conclusion), inf.rule.consequent, edges)
-
-    # fpath = os.path.join(os.environ["HOME"], "metamath", "set.mm")
+    # fpath = "p2.mm"
     # db = parse(fpath)
-    # verify_all(db)
+
+    # db.print()
+    # thm = db.rules['mpd']
+    # thm.print()
+
+    # claim = db.statements[thm.consequent]
+    # proof_root, proof_nodes = verify_proof(db, claim)
+    # proof_root.print(claim.label)
+
+    # print("\nall nodes:\n")
+    # keys = list(proof_nodes.keys())
+    # for k, conclusion in enumerate(keys):
+    #     inf = proof_nodes[conclusion]
+    #     edges = [keys.index(dep.conclusion) for dep in inf.dependencies.values()]
+    #     print(k, " ".join(conclusion), inf.rule.consequent, edges)
+
+    import os
+    fpath = os.path.join(os.environ["HOME"], "metamath", "set.mm")
+    db = parse(fpath)
+    verify_all(db)
 
