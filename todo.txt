@@ -1,6 +1,8 @@
+change assertions to returned status codes
 profile and speedup
 test database and proof
     mm book 4.2.4 has good test case for $d violation
+routine to convert any proof step to a "new rule"
 
 rule:
     is this:
@@ -30,3 +32,6 @@ any statement in a proof can be viewed as a set of "new" rules
     not all really new if
         match substitution was identity
         or it "standardizes" to an existing rule (same after renaming variables alphabetically)
+
+    probably best to use the "final frontier", i.e. frontier only containing $f or $e in proof's scope
+
