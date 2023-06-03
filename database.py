@@ -19,7 +19,14 @@ Frame:
 """
 Statement = namedtuple("Statement", ("label", "tag", "tokens", "proof"))
 
-class Rule(namedtuple("Rule", ("consequent", "essentials", "floatings", "disjoint", "variables"))):
+class Rule:
+    def __init__(self, consequent, essentials, floatings, disjoint, variables):
+        self.consequent = consequent
+        self.essentials = essentials
+        self.floatings = floatings
+        self.disjoint = disjoint
+        self.variables = variables
+
     def print(self):
         print(f"{self.consequent.label} {self.consequent.tag} {' '.join(self.consequent.tokens)} $.")
         print(f"disjoint variable sets: {self.disjoint}")
@@ -146,6 +153,10 @@ def parse(fpath):
                 # update current tag
                 if token[0] == "$" and token[1] not in "()": current_tag = token[1]
                 if current_tag in ("$.", "$}"): current_tag = None
+
+    # concatenate hypotheses for all rules in the database
+    for rule in db.rules.values():
+        rule.hypotheses = rule.floatings + rule.essentials
 
     return db
 

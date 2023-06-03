@@ -1,5 +1,12 @@
 change assertions to returned status codes
-profile and speedup
+most time seems to be spent substituting
+    consider alternative subst-friendly data structure for symbol strings:
+    has a list of recurring substrings, and an index array saying which substring occurs at each position
+    subst is faster, but comparison is slower
+    you're always substituting into rule statements (hypotheses or consequents)
+        these could be augmented with addtl subst-friendly datastructure upfront
+        in this case, recurring substrings are instead recurring tokens
+        leading portion of recurring token list could be the variables, just loop over this part
 test database and proof
     mm book 4.2.4 has good test case for $d violation
 routine to convert any proof step to a "new rule"

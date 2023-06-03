@@ -5,11 +5,13 @@ symbols[n]: nth token in symbol string
 substitution[v]: symbol string to put in place of symbol v
 returns result[n]: nth token after substitutions applied
 """
+@profile
 def substitute(symbols, substitution):
-    result = []
+    result = ()
     for symbol in symbols:
-        result.extend(substitution.get(symbol, [symbol]))
-    return tuple(result)
+        if symbol in substitution: result += substitution[symbol]
+        else: result += (symbol,)
+    return result
 
 """
 Proof step: represents one step of a proof
@@ -39,11 +41,12 @@ Apply a rule to a sequence of dependencies, each a previous proof step
 The conclusions of each dependency should match the hypotheses of the rule
 returns the conclusion, matching substitution, and inherited disjoint variable requirements
 """
+@profile
 def perform(rule, dependencies):
 
     # form substitution that unifies hypotheses with dependencies
     substitution = {}
-    for (hypothesis, dependency) in zip(rule.floatings + rule.essentials, dependencies):
+    for (hypothesis, dependency) in zip(rule.hypotheses, dependencies):
 
         # update substitution for floating hypotheses
         if hypothesis.tag == "$f":
@@ -58,20 +61,22 @@ def perform(rule, dependencies):
             substitution[variable] = dependency.conclusion[1:]
 
         # check that substitution unifies dependencies with essential hypotheses
-        if hypothesis.tag == "$e":
+        else: #if hypothesis.tag == "$e":
             substituted = substitute(hypothesis.tokens, substitution)
             assert dependency.conclusion == substituted, \
                    f"{hypothesis.label}: {' '.join(dependency.conclusion)} != subst({' '.join(hypothesis.tokens)}, {substitution})"
 
     # get all variables in substituted expressions and pairs of variables being substituted
     subvars = {v: rule.variables.intersection(tokens) for (v, tokens) in substitution.items()}
-    variable_pairs = {(min(u,v), max(u,v)) for (u,v) in it.product(substitution.keys(), repeat=2)}
+    variable_pairs = set(it.combinations(sorted(substitution.keys()), 2))
 
     # disjoint variable checks
     inherited = set()
     for (u, v) in variable_pairs & rule.disjoint:
+
         # check that disjoint variable substitutions remain disjoint
         assert len(subvars[u] & subvars[v]) == 0, f"{rule.consequent.label}: $d {u} {v} violated by {substitution}"
+
         # inherit disjoint requirements on the substituted variables
         for (x, y) in it.product(subvars[u], subvars[v]):
             inherited.add((min(x, y), max(x, y)))
@@ -87,17 +92,15 @@ Conduct one step of a proof of claim
 Applies given rule to top of stack; modifies stack in place
 Returns the resulting proof step object
 """
+@profile
 def conduct(rule, stack, claim):
 
-    # get rule hypotheses
-    hypotheses = rule.floatings + rule.essentials
-
     # short-circuit hypothesis-less rules
-    if len(hypotheses) == 0:
+    if len(rule.hypotheses) == 0:
         return ProofStep(tuple(rule.consequent.tokens), rule, {}, {})
 
     # pop top of stack
-    split = len(stack) - len(hypotheses)
+    split = len(stack) - len(rule.hypotheses)
     dependencies = stack[split:]
     del stack[split:]
 
@@ -109,7 +112,7 @@ def conduct(rule, stack, claim):
         f"missing $d requirements: {disjoint} - {claim.disjoint} = {disjoint - claim.disjoint}"
 
     # wrap dependencies in dictionary by hypothesis label
-    dependencies = {hyp.label: dep for (hyp, dep) in zip(hypotheses, dependencies)}
+    dependencies = {hyp.label: dep for (hyp, dep) in zip(rule.hypotheses, dependencies)}
 
     # return results of step
     return ProofStep(conclusion, rule, dependencies, substitution)
@@ -117,6 +120,7 @@ def conduct(rule, stack, claim):
 """
 claim: a rule object whose proof will be verified
 """
+@profile
 def verify_proof(database, claim):
 
     # initialize stack of proof steps
@@ -151,19 +155,19 @@ def verify_proof(database, claim):
     # return root of proof graph and dictionary of nodes
     return stack[0], proof_steps
 
+@profile
 def verify_compressed_proof(database, claim):
 
-    # extract labels and mixed-radix indices of compressed proof
+    # extract labels and mixed-radix pointer encodings
     split = claim.consequent.proof.index(")")
     step_labels = claim.consequent.proof[1:split]
     proof_string = ''.join(claim.consequent.proof[split+1:])
-    ordinals = tuple(map(ord, proof_string))
 
     # convert to integer pointers and save tagged steps
     A, U, Z = ord('A'), ord('U'), ord('Z')
     step_pointers = []
     pointer = 0
-    for ordinal in ordinals:
+    for ordinal in map(ord, proof_string):
         if ordinal < U:
             pointer = 20 * pointer + (ordinal - A)
             step_pointers.append(pointer)
@@ -171,15 +175,15 @@ def verify_compressed_proof(database, claim):
         elif ordinal < Z:
             pointer = 5 * pointer + (ordinal - U) + 1
         else:
-            step_pointers.append(-1) # indicates last step should be tagged
+            step_pointers.append(-1) # indicates previous step should be tagged
 
     # initialize proof stack
     stack = []
 
-    # initialize buffer dereferenced by step pointers
+    # initialize buffer that gets dereferenced by step pointers
     proof_steps = []
     # steps for claim hypotheses
-    for hypothesis in claim.floatings + claim.essentials:
+    for hypothesis in claim.hypotheses:
         conclusion, rule = tuple(hypothesis.tokens), database.rules[hypothesis.label]
         proof_steps.append(ProofStep(conclusion, rule, {}, {}))
     # step labels
@@ -189,8 +193,7 @@ def verify_compressed_proof(database, claim):
     for step, pointer in enumerate(step_pointers):
 
         # tag previous step if requested
-        if pointer < 0:
-            proof_steps.append(stack[-1])
+        if pointer < 0: proof_steps.append(stack[-1])
 
         # otherwise handle current proof step
         else:
@@ -213,9 +216,14 @@ def verify_compressed_proof(database, claim):
     # return root of proof graph and dictionary of nodes
     return stack[0], proof_steps
 
-def verify_all(database):
+@profile
+def verify_all(database, start=0, stop=-1):
     # verify all claims in the database
     for c, claim in enumerate(database.rules.values()):
+
+        # only in specified slice
+        if c < start: continue
+        if c == stop: break
 
         # skip non-$p rules (axioms)
         if claim.consequent.tag != "$p": continue
@@ -253,5 +261,6 @@ if __name__ == "__main__":
     db = parse(fpath)
 
     verify_all(db)
+    # verify_all(db, stop=5000)
     # verify_compressed_proof(db, db.rules['ax5d'])
 
