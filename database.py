@@ -1,6 +1,11 @@
 from collections import namedtuple
 import itertools as it
 
+try:
+    profile
+except NameError:
+    profile = lambda x: x
+
 """
 Statement
     label: the label of the statement (str)
@@ -17,7 +22,35 @@ Frame:
         list of disjoint variables if tag is "d"
         hypothesis if tag in "ef"
 """
-Statement = namedtuple("Statement", ("label", "tag", "tokens", "proof"))
+class Statement:
+    def __init__(self, label, tag, tokens, proof):
+        self.label = label
+        self.tag = tag
+        self.tokens = tokens
+        self.proof = proof
+    def finalize(self):
+        unique_tokens = {}
+        self.token_pointers = []
+        for token in enumerate(self.tokens):
+            if token not in unique_tokens:
+                unique_tokens[token] = len(unique_tokens)
+            self.token_pointers.append(unique_tokens[token])
+        self.unique_tokens = list(unique_tokens.keys())
+    """
+    substitution[v]: symbol string to put in place of symbol v
+    returns substituted[n]: nth token after substitutions applied
+    """
+    @profile
+    def after(self, substitution):
+        substituted = {}
+        for t, token in self.unique_tokens:
+            if token in substitution:
+                substituted[t] = substitution[token]
+            else:
+                substituted[t] = (token,)
+        result = ()
+        for p in self.token_pointers: result += substituted[p]
+        return result
 
 class Rule:
     def __init__(self, consequent, essentials, floatings, disjoint, variables):
@@ -26,11 +59,12 @@ class Rule:
         self.floatings = floatings
         self.disjoint = disjoint
         self.variables = variables
-
+    def finalize(self):
+        self.hypotheses = self.floatings + self.essentials
     def print(self):
         print(f"{self.consequent.label} {self.consequent.tag} {' '.join(self.consequent.tokens)} $.")
         print(f"disjoint variable sets: {self.disjoint}")
-        for hypothesis in self.floatings + self.essentials:
+        for hypothesis in self.hypotheses:
             print(f"  {hypothesis.label} {hypothesis.tag} {' '.join(hypothesis.tokens)} $.")
 
 def new_frame(): return {tag: [] for tag in "cvdfe"}
@@ -116,13 +150,11 @@ def parse(fpath):
                     if current_tag in "fe":
                         frames[-1][current_tag].append(statement)
 
-                    # add completed statements to database
+                    # include placeholder "rules" for hypotheses
                     if current_tag in "fea=":
                         rule = Rule(statement, [], [], set(), set())
-                        db.statements[statement.label] = statement
-                        db.rules[statement.label] = rule
-    
-                    # include scope for axioms and propositions
+
+                    # attach scope to axioms and propositions
                     if current_tag in "a=":
 
                         # get all variables and essential hypotheses in current scope
@@ -147,16 +179,16 @@ def parse(fpath):
                             for disjoint in frame["d"]:
                                 rule.disjoint.update(it.combinations(disjoint, 2))
 
-                        # insert rule into database
-                        db.rules[rule.consequent.label] = rule
+                    # finalize completed statements and rules and add to database
+                    if current_tag in "fea=":
+                        statement.finalize()
+                        rule.finalize()
+                        db.statements[statement.label] = statement
+                        db.rules[statement.label] = rule
 
                 # update current tag
                 if token[0] == "$" and token[1] not in "()": current_tag = token[1]
                 if current_tag in ("$.", "$}"): current_tag = None
-
-    # concatenate hypotheses for all rules in the database
-    for rule in db.rules.values():
-        rule.hypotheses = rule.floatings + rule.essentials
 
     return db
 

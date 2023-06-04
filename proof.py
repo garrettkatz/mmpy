@@ -1,5 +1,10 @@
 import itertools as it
 
+try:
+    profile
+except NameError:
+    profile = lambda x: x
+
 """
 symbols[n]: nth token in symbol string
 substitution[v]: symbol string to put in place of symbol v
@@ -63,6 +68,7 @@ def perform(rule, dependencies):
         # check that substitution unifies dependencies with essential hypotheses
         else: #if hypothesis.tag == "$e":
             substituted = substitute(hypothesis.tokens, substitution)
+            # substituted = hypothesis.after(substitution) # 29
             assert dependency.conclusion == substituted, \
                    f"{hypothesis.label}: {' '.join(dependency.conclusion)} != subst({' '.join(hypothesis.tokens)}, {substitution})"
 
@@ -83,6 +89,7 @@ def perform(rule, dependencies):
 
     # infer conclusion from the rule
     conclusion = substitute(rule.consequent.tokens, substitution)
+    # conclusion = rule.consequent.after(substitution) # 46
 
     # return results
     return conclusion, substitution, inherited
@@ -261,6 +268,6 @@ if __name__ == "__main__":
     db = parse(fpath)
 
     verify_all(db)
-    # verify_all(db, stop=5000)
+    # verify_all(db, stop=10000)
     # verify_compressed_proof(db, db.rules['ax5d'])
 

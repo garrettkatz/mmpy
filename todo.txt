@@ -11,6 +11,10 @@ test database and proof
     mm book 4.2.4 has good test case for $d violation
 routine to convert any proof step to a "new rule"
 
+***
+setup.py package
+c extension for substitution
+
 rule:
     is this:
         list of floating/essential hypotheses and conclusion
