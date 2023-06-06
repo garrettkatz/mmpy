@@ -41,6 +41,19 @@ class ProofStep:
         for lab, dep in self.dependencies.items():
             dep.print(lab, prefix + " ")
 
+    # recursively collect all proof steps along the way to this one
+    def all_steps(self, explored = None):
+
+        # skip duplicated steps
+        if explored == None: explored = set()
+        if self.conclusion in explored: return []
+        explored.add(self.conclusion)
+
+        steps = [self]
+        for dep in self.dependencies.values():
+            steps.extend(dep.all_steps(explored))
+        return steps
+
 """
 Apply a rule to a sequence of dependencies, each a previous proof step 
 The conclusions of each dependency should match the hypotheses of the rule
@@ -128,7 +141,7 @@ def conduct(rule, stack, claim):
 claim: a rule object whose proof will be verified
 """
 @profile
-def verify_proof(database, claim):
+def verify_normal_proof(database, claim):
 
     # initialize stack of proof steps
     stack = []
@@ -143,7 +156,7 @@ def verify_proof(database, claim):
         print(stack)
 
         # conduct next proof step
-        rule = db.rules[step_label]
+        rule = database.rules[step_label]
         proof_step = conduct(rule, stack, claim)
         conclusion = proof_step.conclusion
 
@@ -210,7 +223,7 @@ def verify_compressed_proof(database, claim):
 
             # replace labels by associated step
             if type(proof_step) is str:
-                proof_step = conduct(db.rules[proof_step], stack, claim)
+                proof_step = conduct(database.rules[proof_step], stack, claim)
 
             # push current proof step onto stack
             stack.append(proof_step)
@@ -222,6 +235,13 @@ def verify_compressed_proof(database, claim):
 
     # return root of proof graph and dictionary of nodes
     return stack[0], proof_steps
+
+def verify_proof(database, claim):
+    # compressed proofs start with "(" token
+    if claim.consequent.proof[0] == "(":
+        return verify_compressed_proof(database, claim)
+    else:
+        return verify_normal_proof(database, claim)
 
 @profile
 def verify_all(database, start=0, stop=-1):
@@ -236,11 +256,8 @@ def verify_all(database, start=0, stop=-1):
         if claim.consequent.tag != "$p": continue
         print(c, claim.consequent.label)
 
-        # compressed proofs start with "(" token
-        if claim.consequent.proof[0] == "(":
-            verify_compressed_proof(database, claim)
-        else:
-            verify_proof(database, claim)
+        verify_proof(database, claim)
+
 
 if __name__ == "__main__":
 
@@ -266,8 +283,9 @@ if __name__ == "__main__":
     import os
     fpath = os.path.join(os.environ["HOME"], "metamath", "set.mm")
     db = parse(fpath)
+    print("parsed.")
 
     verify_all(db)
-    # verify_all(db, stop=10000)
+    # verify_all(db, stop=5000)
     # verify_compressed_proof(db, db.rules['ax5d'])
 

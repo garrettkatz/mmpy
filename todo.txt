@@ -1,19 +1,9 @@
 change assertions to returned status codes
-most time seems to be spent substituting
-    consider alternative subst-friendly data structure for symbol strings:
-    has a list of recurring substrings, and an index array saying which substring occurs at each position
-    subst is faster, but comparison is slower
-    you're always substituting into rule statements (hypotheses or consequents)
-        these could be augmented with addtl subst-friendly datastructure upfront
-        in this case, recurring substrings are instead recurring tokens
-        leading portion of recurring token list could be the variables, just loop over this part
+substitution is the bottleneck, try c-extension
 test database and proof
     mm book 4.2.4 has good test case for $d violation
 routine to convert any proof step to a "new rule"
-
-***
 setup.py package
-c extension for substitution
 
 rule:
     is this:
@@ -44,5 +34,5 @@ any statement in a proof can be viewed as a set of "new" rules
         match substitution was identity
         or it "standardizes" to an existing rule (same after renaming variables alphabetically)
 
-    probably best to use the "final frontier", i.e. frontier only containing $f or $e in proof's scope
+    default (but maybe not general enough) is to use the "final frontier", i.e. frontier only containing $f or $e in proof's scope?
 

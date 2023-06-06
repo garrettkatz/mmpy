@@ -22,35 +22,7 @@ Frame:
         list of disjoint variables if tag is "d"
         hypothesis if tag in "ef"
 """
-class Statement:
-    def __init__(self, label, tag, tokens, proof):
-        self.label = label
-        self.tag = tag
-        self.tokens = tokens
-        self.proof = proof
-    def finalize(self):
-        unique_tokens = {}
-        self.token_pointers = []
-        for token in enumerate(self.tokens):
-            if token not in unique_tokens:
-                unique_tokens[token] = len(unique_tokens)
-            self.token_pointers.append(unique_tokens[token])
-        self.unique_tokens = list(unique_tokens.keys())
-    """
-    substitution[v]: symbol string to put in place of symbol v
-    returns substituted[n]: nth token after substitutions applied
-    """
-    @profile
-    def after(self, substitution):
-        substituted = {}
-        for t, token in self.unique_tokens:
-            if token in substitution:
-                substituted[t] = substitution[token]
-            else:
-                substituted[t] = (token,)
-        result = ()
-        for p in self.token_pointers: result += substituted[p]
-        return result
+Statement = namedtuple('Statement', ('label', 'tag', 'tokens', 'proof'))
 
 class Rule:
     def __init__(self, consequent, essentials, floatings, disjoint, variables):
@@ -80,6 +52,7 @@ class Database:
             if r < start: continue
             rule.print()
 
+@profile
 def parse(fpath):
 
     db = Database()
@@ -107,19 +80,19 @@ def parse(fpath):
 
                 # skip comments
                 if token == "$(": in_comment = True
-                if token == "$)": in_comment = False
+                elif token == "$)": in_comment = False
                 if in_comment: continue
 
                 # update scope
                 if token == "${": frames.append(new_frame())
-                if token == "$}": frames.pop()
+                elif token == "$}": frames.pop()
 
                 # initialize declarations
-                if token in ("$c", "$v", "$d"):
+                elif token in ("$c", "$v", "$d"):
                     statement = Statement(label, token, [], [])
 
                 # initialize labeled statements
-                if token in ("$f", "$e", "$a", "$p"):
+                elif token in ("$f", "$e", "$a", "$p"):
                     assert label != None, \
                            f"line {n+1}: {token} not preceded by label"
 
@@ -127,7 +100,7 @@ def parse(fpath):
                     db.statements[label] = statement
 
                 # handle non-tag tokens
-                if token[0] != "$":
+                elif token[0] != "$":
 
                     # update label
                     label = token
@@ -140,7 +113,7 @@ def parse(fpath):
                             statement.proof.append(token)
 
                 # handle completed statements and rules
-                if token == "$.":
+                elif token == "$.":
 
                     # update frame
                     if current_tag in "cv":
@@ -179,9 +152,8 @@ def parse(fpath):
                             for disjoint in frame["d"]:
                                 rule.disjoint.update(it.combinations(disjoint, 2))
 
-                    # finalize completed statements and rules and add to database
+                    # add completed statements and finalized rules to database
                     if current_tag in "fea=":
-                        statement.finalize()
                         rule.finalize()
                         db.statements[statement.label] = statement
                         db.rules[statement.label] = rule
