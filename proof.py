@@ -10,13 +10,14 @@ symbols[n]: nth token in symbol string
 substitution[v]: symbol string to put in place of symbol v
 returns result[n]: nth token after substitutions applied
 """
-@profile
+# @profile
 def substitute(symbols, substitution):
     result = ()
     for symbol in symbols:
         if symbol in substitution: result += substitution[symbol]
         else: result += (symbol,)
     return result
+# from substitute import substitute # cython version
 
 """
 Proof step: represents one step of a proof
@@ -285,7 +286,7 @@ if __name__ == "__main__":
     db = parse(fpath)
     print("parsed.")
 
-    verify_all(db)
-    # verify_all(db, stop=5000)
+    # verify_all(db)
+    verify_all(db, stop=20000)
     # verify_compressed_proof(db, db.rules['ax5d'])
 
