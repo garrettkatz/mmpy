@@ -1,0 +1,134 @@
+In order to prepare the necessary Files for packaging create the file system below
+
+(Name of Whole Package Directory)/
+├── LICENSE
+├── pyproject.toml
+├── README.md
+├── src/
+│   └── (Name of Directory containing python files)/
+│       ├── __init__.py
+│       └── (Name of Python File 1).py 
+        └── (Name of Python File 2).py
+        └── *and so on*
+└── tests/
+
+Here is what goes in each section of the Whole Directory
+
+***************************
+
+---LICENSE
+
+This contains the content included in the License section of the GitHub repository, if you want you can just copy and paste the file
+
+---pyproject.toml
+
+This is the general structure of the toml file, below the structure is a description of each section, this was all gotten from packaging.python.org at this link:
+https://packaging.python.org/en/latest/tutorials/packaging-projects/ (The fields provided are examples)
+
+_____________________________________________________________________
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "example_package_YOUR_USERNAME_HERE"
+version = "0.0.1"
+authors = [
+  { name="Example Author", email="author@example.com" },
+]
+description = "A small example package"
+readme = "README.md"
+requires-python = ">=3.7"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/pypa/sampleproject"
+"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
+
+________________________________________________________________________
+
+name: is the distribution name of your package. This can be any name as long as it only contains letters, numbers, ., _ , and -. It also must not already be taken on PyPI. 
+
+version: is the package version. See the version specifier specification for more details on versions. Some build backends allow it to be specified another way, such as from a file or a git tag. 
+(At this time I am unsure how to change the version number from 0.0.0, changing the text did not work. The method may require looking into the setuptools documentation)
+
+authors: is used to identify the author of the package; you specify a name and an email for each author. You can also list maintainers in the same format.
+
+description: is a short, one-sentence summary of the package.
+
+readme: is a path to a file containing a detailed description of the package. This is shown on the package detail page on PyPI. In this case, the description is loaded from README.md (which is a common pattern). There also is a more advanced table form described in the project metadata specification.
+
+requires-python: gives the versions of Python supported by your project. Installers like pip will look back through older versions of packages until it finds one that has a matching Python version.
+
+classifiers: gives the index and pip some additional metadata about your package. In this case, the package is only compatible with Python 3, is licensed under the MIT license, and is OS-independent. You should always include at least which version(s) of Python your package works on, which license your package is available under, and which operating systems your package will work on. For a complete list of classifiers, see https://pypi.org/classifiers/.
+
+urls: lets you list any number of extra links to show on PyPI. Generally this could be to the source, documentation, issue trackers, etc.
+
+---README.md 
+This is the README file for the project it can be copy pasted using the file on GitHub
+
+---tests
+The tests section includes the Test Files for the project, the file that is packaged currently has no test files but that is likely to change. 
+This section will be updated when more experience is gained
+
+***************************
+
+The next step involves generating distribution packages for the project for it to be installed on pip:
+
+First run the command
+
+(Mac/Unix)
+"python3 -m pip install --upgrade build" on Mac/Unix 
+
+(Windows)
+"py -m pip install --upgrade build"
+
+Now from the same directory as pyproject.toml, run the command
+
+(Mac/Unix)
+"python3 -m build"
+
+(Windows)
+"py -m build"
+
+This should generate the these two files in the dist directory
+
+dist/
+├── example_package_YOUR_USERNAME_HERE-0.0.1-py3-none-any.whl
+└── example_package_YOUR_USERNAME_HERE-0.0.1.tar.gz
+
+Once that is complete create an account on PyPI.org
+
+When that is created  you must get a PyPi API token at https://pypi.org/manage/account/#api-tokens setting the scope to "Entire Account" make sure you copy and save the token as you won't see it again   
+
+The last steps include using twine to upload the package contents to PyPi:
+
+First run the following command
+
+(Unix/Mac)
+"python3 -m pip install --upgrade twine"
+
+(Windows)
+"py -m pip install --upgrade twine"
+
+Finally run the command
+
+(Unix/Mac)
+"python3 -m twine upload --repository testpypi dist/*"
+
+(Windows)
+"py -m twine upload --repository testpypi dist/*"
+
+When prompted for a username use "__token__" and for the password use the token's value including the "pypi-" prefix 
+
+Upon completion the package should be viewable on PyPi at the link https://test.pypi.org/project/(Name of Package in toml)
+
+Congrats! The Package should be able to be downloaded and installed as normal
+
+
+
