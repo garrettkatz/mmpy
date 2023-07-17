@@ -211,6 +211,7 @@ def verify_compressed_proof(database, claim):
     proof_steps += step_labels
 
     # process each step in proof
+    proof_step_dict = {}
     for step, pointer in enumerate(step_pointers):
 
         # tag previous step if requested
@@ -225,6 +226,7 @@ def verify_compressed_proof(database, claim):
             # replace labels by associated step
             if type(proof_step) is str:
                 proof_step = conduct(database.rules[proof_step], stack, claim)
+                proof_step_dict[proof_step.conclusion] = proof_step
 
             # push current proof step onto stack
             stack.append(proof_step)
@@ -235,7 +237,7 @@ def verify_compressed_proof(database, claim):
     assert len(stack) == 1, f"non-singleton stack {stack} after proof"
 
     # return root of proof graph and dictionary of nodes
-    return stack[0], proof_steps
+    return stack[0], proof_step_dict
 
 def verify_proof(database, claim):
     # compressed proofs start with "(" token
