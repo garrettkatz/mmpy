@@ -1,3 +1,7 @@
+"""
+Run from parent directory with
+$ python -m src.database
+"""
 from collections import namedtuple
 import itertools as it
 

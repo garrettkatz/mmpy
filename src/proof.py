@@ -1,3 +1,7 @@
+"""
+Run from parent directory with
+$ python -m src.proof
+"""
 import itertools as it
 
 try:
@@ -153,8 +157,8 @@ def verify_normal_proof(database, claim):
     # process each label in proof
     for step, step_label in enumerate(claim.consequent.proof):
 
-        print(f"\n{step}")
-        print(stack)
+        # print(f"\n{step}")
+        # print(stack)
 
         # conduct next proof step
         rule = database.rules[step_label]
@@ -257,14 +261,14 @@ def verify_all(database, start=0, stop=-1):
 
         # skip non-$p rules (axioms)
         if claim.consequent.tag != "$p": continue
-        print(c, claim.consequent.label)
+        # print(c, claim.consequent.label)
 
         verify_proof(database, claim)
 
 
 if __name__ == "__main__":
 
-    from database import *
+    from src.database import *
 
     # fpath = "p2.mm"
     # db = parse(fpath)
