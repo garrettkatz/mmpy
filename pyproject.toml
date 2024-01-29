@@ -3,10 +3,10 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "TBA"
-version = "0.0.1"
+name = "metamath-py"
+version = "0.0.2"
 authors = [
-  { name="Garrett E. Katz", email="gkatz01@syr.edu" },
+  { name="Garrett E. Katz", email="garrett.katz@gmail.com" },
 ]
 description = "A Python interface to Metamath"
 readme = "README.md"
