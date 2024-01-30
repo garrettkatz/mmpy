@@ -70,6 +70,7 @@ Statement(label='ax-mp', tag='$a', tokens=['|-', 'ps'], proof=[])
 {'ph': ('ph',), 'ps': ('(', 'ps', '->', 'ph', ')')}
 >>> root.dependencies # the other steps on which this one was justified
 {'wph': wph wff ph, 'wps': wi wff ( ps -> ph ), 'min': a1i.1 |- ph, 'maj': ax-1 |- ( ph -> ( ps -> ph ) )}
+```
 
 The dependencies are a dictionary where keys are the labels of the rule's hypotheses, and values are the other proof steps that satisfied those hypotheses.  These can be thought of as the children of the root in the proof tree.
 
