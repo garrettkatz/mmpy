@@ -1,5 +1,5 @@
-from database import parse
-from proof import verify_proof
+from metamathpy.database import parse
+from metamathpy.proof import verify_proof
 
 if __name__ == "__main__":
 

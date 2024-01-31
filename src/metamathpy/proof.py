@@ -38,13 +38,14 @@ class ProofStep:
         self.substitution = substitution # substitution that matches them
 
     def __repr__(self):
-        return f"{self.rule.consequent.label} {' '.join(self.conclusion)}"
+        return f"ProofStep(conclusion=[{self.rule.consequent.label}] {' '.join(self.conclusion)})"
 
-    def print(self, label="", prefix=""):
+    def tree_string(self, label="", prefix=""):
         subst = {key: " ".join(val) for key, val in self.substitution.items()}
-        print(f"{prefix}[{label} <= {self.rule.consequent.label}] {' '.join(self.conclusion)} {subst}")
+        ts = f"{prefix}[{label} <= {self.rule.consequent.label}] {' '.join(self.conclusion)} {subst}\n"
         for lab, dep in self.dependencies.items():
-            dep.print(lab, prefix + " ")
+            ts += dep.tree_string(lab, prefix + " ")
+        return ts
 
     # recursively collect all proof steps along the way to this one
     def all_steps(self, explored = None):
@@ -268,7 +269,7 @@ def verify_all(database, start=0, stop=-1):
 
 if __name__ == "__main__":
 
-    from src.database import *
+    from metamathpy.database import *
 
     # fpath = "p2.mm"
     # db = parse(fpath)
