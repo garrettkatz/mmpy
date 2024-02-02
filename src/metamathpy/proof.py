@@ -1,41 +1,37 @@
 """
-Run from parent directory with
-$ python -m src.proof
+Run from top-level directory with
+$ python -m src.metamathpy.proof
 """
 import itertools as it
+from unification import substitute, unify
 
 try:
     profile
 except NameError:
     profile = lambda x: x
 
-"""
-symbols[n]: nth token in symbol string
-substitution[v]: symbol string to put in place of symbol v
-returns result[n]: nth token after substitutions applied
-"""
-# @profile
-def substitute(symbols, substitution):
-    result = ()
-    for symbol in symbols:
-        if symbol in substitution: result += substitution[symbol]
-        else: result += (symbol,)
-    return result
-# from substitute import substitute # cython version
 
 """
 Proof step: represents one step of a proof
 conclusion: the symbol string that is concluded by applying an inference rule
 rule: the rule object that was applied
-dependencies[h]: another inference object, whose conclusion met the rule hypothesis with label h
+dependencies[h]: another ProofStep object, whose conclusion satisfies the rule hypothesis with label h
 substitution: the substitution that transforms the rule's consequent and hypotheses into the conclusion and dependencies
+disjoint: the set of disjoint variable requirements inherited from dependencies
 """
 class ProofStep:
-    def __init__(self, conclusion, rule, dependencies, substitution):
+    def __init__(self, conclusion, rule, dependencies=None, substitution=None, disjoint=None):
+
+        # defaults
+        if dependencies is None: dependencies = {}
+        if substitution is None: substitution = {}
+        if disjoint is None: disjoint = set()
+
         self.conclusion = conclusion # conclusion of the step
         self.rule = rule # justification for the step
         self.dependencies = dependencies # previous steps it relies on
         self.substitution = substitution # substitution that matches them
+        self.disjoint = disjoint # disjoint requirements inherited from them
 
     def __repr__(self):
         return f"ProofStep(conclusion=[{self.rule.consequent.label}] {' '.join(self.conclusion)})"
@@ -63,10 +59,14 @@ class ProofStep:
 """
 Apply a rule to a sequence of dependencies, each a previous proof step 
 The conclusions of each dependency should match the hypotheses of the rule
-returns the conclusion, matching substitution, and inherited disjoint variable requirements
+returns the resulting proof step
 """
 @profile
 def perform(rule, dependencies):
+
+    # make sure all hypotheses accounted for
+    assert len(rule.hypotheses) == len(dependencies), \
+        f"{len(rule.hypotheses)} hypotheses != {len(dependencies)} dependences"
 
     # form substitution that unifies hypotheses with dependencies
     substitution = {}
@@ -87,7 +87,6 @@ def perform(rule, dependencies):
         # check that substitution unifies dependencies with essential hypotheses
         else: #if hypothesis.tag == "$e":
             substituted = substitute(hypothesis.tokens, substitution)
-            # substituted = hypothesis.after(substitution) # 29
             assert dependency.conclusion == substituted, \
                    f"{hypothesis.label}: {' '.join(dependency.conclusion)} != subst({' '.join(hypothesis.tokens)}, {substitution})"
 
@@ -108,40 +107,47 @@ def perform(rule, dependencies):
 
     # infer conclusion from the rule
     conclusion = substitute(rule.consequent.tokens, substitution)
-    # conclusion = rule.consequent.after(substitution) # 46
 
-    # return results
-    return conclusion, substitution, inherited
+    # wrap dependencies in dictionary by hypothesis label
+    dependencies = {hyp.label: dep for (hyp, dep) in zip(rule.hypotheses, dependencies)}
+
+    # return results as a proof step
+    return ProofStep(conclusion, rule, dependencies, substitution, inherited)
 
 """
-Conduct one step of a proof of claim
+Conduct one step of a proof
 Applies given rule to top of stack; modifies stack in place
+asserts disjoint variable requirements if provided
 Returns the resulting proof step object
 """
 @profile
-def conduct(rule, stack, claim):
+def conduct(rule, stack, disjoint=None):
 
     # short-circuit hypothesis-less rules
     if len(rule.hypotheses) == 0:
-        return ProofStep(tuple(rule.consequent.tokens), rule, {}, {})
+        return ProofStep(tuple(rule.consequent.tokens), rule)
 
     # pop top of stack
     split = len(stack) - len(rule.hypotheses)
     dependencies = stack[split:]
     del stack[split:]
 
-    # get conclusion by applying rule to top of stack
-    conclusion, substitution, disjoint = perform(rule, dependencies)
+    # get next proof step by applying rule to top of stack
+    # conclusion, substitution, disjoint = perform(rule, dependencies)
+    step = perform(rule, dependencies)
 
     # check against missing disjoint requirements
-    assert disjoint <= claim.disjoint, \
-        f"missing $d requirements: {disjoint} - {claim.disjoint} = {disjoint - claim.disjoint}"
+    if disjoint is not None:
+        assert step.disjoint <= disjoint, \
+        f"missing $d requirements: {step.disjoint} - {disjoint} = {step.disjoint - disjoint}"
 
-    # wrap dependencies in dictionary by hypothesis label
-    dependencies = {hyp.label: dep for (hyp, dep) in zip(rule.hypotheses, dependencies)}
+    return step
 
-    # return results of step
-    return ProofStep(conclusion, rule, dependencies, substitution)
+    # # wrap dependencies in dictionary by hypothesis label
+    # dependencies = {hyp.label: dep for (hyp, dep) in zip(rule.hypotheses, dependencies)}
+
+    # # return results of step
+    # return ProofStep(conclusion, rule, dependencies, substitution)
 
 """
 claim: a rule object whose proof will be verified
@@ -163,7 +169,7 @@ def verify_normal_proof(database, claim):
 
         # conduct next proof step
         rule = database.rules[step_label]
-        proof_step = conduct(rule, stack, claim)
+        proof_step = conduct(rule, stack, claim.disjoint)
         conclusion = proof_step.conclusion
 
         # save new proof steps
@@ -211,7 +217,7 @@ def verify_compressed_proof(database, claim):
     # steps for claim hypotheses
     for hypothesis in claim.hypotheses:
         conclusion, rule = tuple(hypothesis.tokens), database.rules[hypothesis.label]
-        proof_steps.append(ProofStep(conclusion, rule, {}, {}))
+        proof_steps.append(ProofStep(conclusion, rule))
     # step labels
     proof_steps += step_labels
 
@@ -230,7 +236,7 @@ def verify_compressed_proof(database, claim):
 
             # replace labels by associated step
             if type(proof_step) is str:
-                proof_step = conduct(database.rules[proof_step], stack, claim)
+                proof_step = conduct(database.rules[proof_step], stack, claim.disjoint)
                 proof_step_dict[proof_step.conclusion] = proof_step
 
             # push current proof step onto stack
@@ -296,4 +302,26 @@ if __name__ == "__main__":
     # verify_all(db)
     verify_all(db, stop=20000)
     # verify_compressed_proof(db, db.rules['ax5d'])
+
+    # TODO: complete following demonstration of solitaire functionality
+
+    # conduct a proof, one step at a time, for x = x
+    # https://us.metamath.org/mmsolitaire/mms.html#q7
+    labels = ["ax-1", "ax-1", "ax-2", "ax-mp", "ax-mp", "ax-1", "ax-1", "ax-2", "ax-mp", "ax-mp",
+        "impbi", # df-bi3 on metamath solitaire js
+        "ax-mp", "ax-mp", "ax-gen", "ax-ext", "ax-mp",]
+
+    stack = []
+    for label in labels:
+        rule = db.rules[label]
+
+        # unify to get floating hypotheses (implicit in solitaire)
+        unify(rule, stack)
+
+        # for axioms, push their floating hypotheses onto the stack
+
+        # conduct the step
+        step = conduct(rule, stack)
+        print(step)
+
 
