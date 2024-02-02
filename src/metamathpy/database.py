@@ -37,11 +37,12 @@ class Rule:
         self.variables = variables
     def finalize(self):
         self.hypotheses = self.floatings + self.essentials
-    def print(self):
-        print(f"{self.consequent.label} {self.consequent.tag} {' '.join(self.consequent.tokens)} $.")
-        print(f"disjoint variable sets: {self.disjoint}")
+    def __str__(self):
+        s = f"{self.consequent.label} {self.consequent.tag} {' '.join(self.consequent.tokens)} $.\n"
+        s += f"disjoint variable sets: {self.disjoint}\n"
         for hypothesis in self.hypotheses:
-            print(f"  {hypothesis.label} {hypothesis.tag} {' '.join(hypothesis.tokens)} $.")
+            s += f"  {hypothesis.label} {hypothesis.tag} {' '.join(hypothesis.tokens)} $.\n"
+        return s
 
 def new_frame(): return {tag: [] for tag in "cvdfe"}
 
@@ -50,11 +51,12 @@ class Database:
         self.statements = {} # looks up statements by label
         self.rules = {} # looks up rules by consequent's label
 
-    def print(self, start=0):
+    def print(self, start=0, stop=0):
         if start < 0: start = len(self.rules) + start
+        if stop <= 0: stop = len(self.rules) + stop
         for r, rule in enumerate(self.rules.values()):
-            if r < start: continue
-            rule.print()
+            if not (start <= r < stop): continue
+            print(rule)
 
 @profile
 def parse(fpath):
@@ -178,7 +180,7 @@ if __name__ == "__main__":
 
     db = parse(fpath)
 
-    db.print(start=-3)
+    db.print(start=-6, stop=0)
     # db.print()
     print(f"{len(db.statements)} statements total, {len(db.rules)} rules total")
 
