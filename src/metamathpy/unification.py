@@ -31,7 +31,7 @@ def unify(rule, dependencies, subform):
 
     # concatenate single symbol strings for essentials and dependencies
     hyp_tokens, dep_tokens = (), ()
-    for hyp, dep in zip(rule.essentials, dependencies)
+    for hyp, dep in zip(rule.essentials, dependencies):
         hyp_tokens += hyp.tokens
         dep_tokens += dep.conclusion.tokens
 
