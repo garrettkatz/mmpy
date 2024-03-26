@@ -11,9 +11,9 @@ A python interface to [Metamath](https://us.metamath.org/)
 Loading a .mm file (may take a minute for large databases):
 
 ```
->>> import metamathpy as mm
+>>> import metamathpy.database as md
 >>> import os
->>> db = mm.database.parse(os.path.join(os.environ["HOME"], "metamath", "set.mm"))
+>>> db = md.parse(os.path.join(os.environ["HOME"], "metamath", "set.mm"))
 ```
 
 Access any statement by its label, for example the major premise of the modus ponens axiom:
@@ -30,7 +30,7 @@ Access any inference rule by the label of its consequent:
 ```
 >>> db.rules['ax-mp']
 <metamathpy.database.Rule object at 0x7fe21f099370>
->>> db.rules['ax-mp'].print() # pretty-print it
+>>> print(db.rules['ax-mp']) # more human readable
 ax-mp $a |- ps $.
 disjoint variable sets: set()
   wph $f wff ph $.
@@ -69,7 +69,7 @@ Statement(label='ax-mp', tag='$a', tokens=['|-', 'ps'], proof=[])
 >>> root.substitution # the variable substitution that unified ax-mp with this step
 {'ph': ('ph',), 'ps': ('(', 'ps', '->', 'ph', ')')}
 >>> root.dependencies # the other steps on which this one was justified
-{'wph': wph wff ph, 'wps': wi wff ( ps -> ph ), 'min': a1i.1 |- ph, 'maj': ax-1 |- ( ph -> ( ps -> ph ) )}
+{'wph': ProofStep(conclusion=[wph] wff ph), 'wps': ProofStep(conclusion=[wi] wff ( ps -> ph )), 'min': ProofStep(conclusion=[a1i.1] |- ph), 'maj': ProofStep(conclusion=[ax-1] |- ( ph -> ( ps -> ph ) ))}
 ```
 
 The dependencies are a dictionary where keys are the labels of the rule's hypotheses, and values are the other proof steps that satisfied those hypotheses.  These can be thought of as the children of the root in the proof tree.

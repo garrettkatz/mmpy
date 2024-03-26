@@ -88,6 +88,8 @@ First run the command
 (Windows)
 "py -m pip install --upgrade build"
 
+Next update the version number in pyproject.toml if necessary
+
 Now from the same directory as pyproject.toml, run the command
 
 (Mac/Unix)
@@ -123,6 +125,8 @@ Finally run the command
 
 (Windows)
 "py -m twine upload --repository testpypi dist/*"
+
+Instead of * be more specific if old versions also exist in dist.  Also, replace testpypi with pypi for the final version.
 
 When prompted for a username use "__token__" and for the password use the token's value including the "pypi-" prefix 
 
