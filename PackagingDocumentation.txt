@@ -55,7 +55,6 @@ ________________________________________________________________________
 name: is the distribution name of your package. This can be any name as long as it only contains letters, numbers, ., _ , and -. It also must not already be taken on PyPI. 
 
 version: is the package version. See the version specifier specification for more details on versions. Some build backends allow it to be specified another way, such as from a file or a git tag. 
-(At this time I am unsure how to change the version number from 0.0.0, changing the text did not work. The method may require looking into the setuptools documentation)
 
 authors: is used to identify the author of the package; you specify a name and an email for each author. You can also list maintainers in the same format.
 
@@ -88,7 +87,7 @@ First run the command
 (Windows)
 "py -m pip install --upgrade build"
 
-Next update the version number in pyproject.toml if necessary
+Next update the version number in pyproject.toml if necessary, you should not clobber a previously packaged version number
 
 Now from the same directory as pyproject.toml, run the command
 
@@ -101,8 +100,8 @@ Now from the same directory as pyproject.toml, run the command
 This should generate the these two files in the dist directory
 
 dist/
-├── example_package_YOUR_USERNAME_HERE-0.0.1-py3-none-any.whl
-└── example_package_YOUR_USERNAME_HERE-0.0.1.tar.gz
+├── example_package_YOUR_USERNAME_HERE-X.Y.Z-py3-none-any.whl
+└── example_package_YOUR_USERNAME_HERE-X.Y.Z.tar.gz
 
 Once that is complete create an account on PyPI.org
 

@@ -74,4 +74,42 @@ Statement(label='ax-mp', tag='$a', tokens=['|-', 'ps'], proof=[])
 
 The dependencies are a dictionary where keys are the labels of the rule's hypotheses, and values are the other proof steps that satisfied those hypotheses.  These can be thought of as the children of the root in the proof tree.
 
+You can instantiate a gym-like environment that operates similarly to [metamath solitaire](https://catsarefluffy.github.io/mmsjs/unify.html).  Initialize it with a database and reset to a blank proof state, optionally with a claim you want to prove:
+
+```
+>>> from metamathpy.environment import Environment
+>>> env = Environment(db)
+>>> env.reset(claim=db.rules['mpd'])
+(<metamathpy.database.Rule object at 0x74ad291f37c0>, [], [])
+```
+
+It returns a state tuple (claim, proof, stack).  Rule applications are treated like actions and their labels are saved in the proof list.  The stack is updated according to the metamath proof verification algorithm.  To apply a rule, provide it as an action at the current step:
+
+```
+>>> env.step("wph")
+((<metamathpy.database.Rule object at 0x74ad291f37c0>, [], [ProofStep(conclusion=[wph] wff ph)]), '')
+>>> env.step("wps")
+((<metamathpy.database.Rule object at 0x74ad291f37c0>, [], [ProofStep(conclusion=[wph] wff ph), ProofStep(conclusion=[wps] wff ps)]), '')
+>>> env.step("wi")
+((<metamathpy.database.Rule object at 0x74ad291f37c0>, [], [ProofStep(conclusion=[wi] wff ( ph -> ps ))]), '')
+>>> env.step("wi")
+((<metamathpy.database.Rule object at 0x74ad291f37c0>, [], [None]), '2 hypotheses != 1 dependences')
+```
+
+The step returns a (state, msg) tuple.  msg is empty if the rule was valid, otherwise it contains an error message and the top of stack is None.
+
+Environments can be deep-copied if you want to use them in a branching tree search:
+
+```
+>>> env.reset()
+(None, [], [])
+>>> env.step("wph")
+((None, ['wph'], [ProofStep(conclusion=[wph] wff ph)]), '')
+>>> env2 = env.copy()
+>>> env.step("wi")
+((None, ['wph', 'wi'], [None]), '2 hypotheses != 1 dependences')
+>>> env2.step("wps")
+((None, ['wph', 'wps'], [ProofStep(conclusion=[wph] wff ph), ProofStep(conclusion=[wps] wff ps)]), '')
+
+```
 
