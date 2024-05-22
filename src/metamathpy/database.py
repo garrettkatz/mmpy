@@ -59,7 +59,7 @@ class Database:
             print(rule)
 
 @profile
-def parse(fpath):
+def parse(fpath, max_rules=-1):
 
     db = Database()
 
@@ -74,6 +74,8 @@ def parse(fpath):
 
     with open(fpath, "r") as f:
         for n, line in enumerate(f):
+
+            if len(db.rules) == max_rules: break
 
             for token in line.strip().split():
 
@@ -178,11 +180,11 @@ if __name__ == "__main__":
     # fpath = 'badparse.mm'
     # fpath = "p2.mm"
 
-    db = parse(fpath)
+    db = parse(fpath, max_rules=100)
 
     db.print(start=-6, stop=0)
-    # db.print()
-    print(f"{len(db.statements)} statements total, {len(db.rules)} rules total")
+    # # db.print()
+    # print(f"{len(db.statements)} statements total, {len(db.rules)} rules total")
 
     # for (label, stmt) in db.statements.items():
     #     print(label, stmt)
