@@ -58,6 +58,16 @@ class Database:
             if not (start <= r < stop): continue
             print(rule)
 
+    def dump(self, fname):
+
+        tokens = set([tok for stmt in self.statements.values() for tok in stmt.tokens])
+        variables = set([var for rule in self.rules.values() for var in rule.variables])
+        constants = tokens - variables
+
+        # print(variables)
+        # print(constants)
+        # with open(fname, "w") as f: f.write(s)
+
 @profile
 def parse(fpath, max_rules=-1):
 
