@@ -1,34 +1,46 @@
 from .setmm import load_pl
 from .environment import Environment
 
+def print_env(env):
+    print("proof: " + " ".join(env.proof))
+    print("stack:")
+    for s, step in enumerate(env.stack):
+        print(" ", s, step)
+    print(f"{len(env.proof)} steps so far...\n")
+
 if __name__ == "__main__":
 
     db = load_pl()
-    env = Environment(db)
+    envs = [Environment(db)]
     
     while True:
-        label = input("Enter label (q to quit): ")
+        label = input("Enter label (q to quit, r to restart, u to undo): ")
 
         if label == "q":
             break
+
+        if label == "r":
+            envs = [Environment(db)]
+            continue
+
+        if label == "u":
+            if len(envs) > 1:
+                envs = envs[:-1]
+                print_env(envs[-1])
+            continue
 
         if label not in db.rules:
             print("No rule called {label}, try again.")
             continue
 
-        new_env = env.copy()
-        _, msg = new_env.step(label)
+        env = envs[-1].copy()
+        _, msg = env.step(label)
 
         if msg != "":
             print("Invalid rule: " + msg)
             print("try again.")
             continue
 
-        env = new_env
+        envs.append(env)
 
-        print("proof: " + " ".join(env.proof))
-        print("stack:")
-        for s, step in enumerate(env.stack):
-            print(" ", s, step)
-        print(f"{len(env.proof)} steps so far...\n")
-    
+        print_env(env)    

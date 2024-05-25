@@ -89,7 +89,8 @@ def perform(rule, dependencies):
         else: #if hypothesis.tag == "$e":
             substituted = substitute(hypothesis.tokens, substitution)
             if dependency.conclusion != substituted:
-                return None, f"{hypothesis.label}: {' '.join(dependency.conclusion)} != subst({' '.join(hypothesis.tokens)}, {substitution})"
+                substr = {k: " ".join(v) for k,v in substitution.items()}
+                return None, f"{hypothesis.label}: {' '.join(dependency.conclusion)} != subst({' '.join(hypothesis.tokens)}, {substr})"
 
     # get all variables in substituted expressions and pairs of variables being substituted
     subvars = {v: rule.variables.intersection(tokens) for (v, tokens) in substitution.items()}
