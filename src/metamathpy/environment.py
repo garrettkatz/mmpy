@@ -23,35 +23,51 @@ class Environment:
         self.claim = None
         self.proof = []
         self.stack = []
+        self.steps = []
 
     def copy(self):
         env = Environment(self.db)
         env.claim = self.claim
         env.proof = list(self.proof)
         env.stack = list(self.stack)
+        env.steps = list(self.steps)
         return env
 
     def reset(self, claim=None):
         self.claim = claim
         self.proof = []
         self.stack = []
+        self.steps = []
         return (self.claim, list(self.proof), list(self.stack))
 
-    # action is label of rule to apply
+    # action is label of rule to apply or integer index
+    # index will push a previous proof step back onto stack
     def step(self, action):
 
         # enforce disjoint variables if proving a specific claim
         disjoint = set() if self.claim is None else self.claim.disjoint
 
         # conduct next proof step
-        rule = self.db.rules[action]
-        proof_step, msg = conduct(rule, self.stack, disjoint)
+        if type(action) is str:
+
+            rule = self.db.rules[action]
+            proof_step, msg = conduct(rule, self.stack, disjoint)
+
+        else:
+
+            if type(action) is int and 0 <= action < len(self.steps):
+                proof_step, msg = self.steps[action], ""
+            else:
+                proof_step, msg = None, f"{action} out of bounds for length {len(self.steps)} proof"
 
         # push proof step onto stack
         self.stack.append(proof_step)
 
         # save actions so far in proof
         self.proof.append(action)
+
+        # save steps so far in proof
+        self.steps.append(proof_step)
 
         # return state and message
         state = (self.claim, list(self.proof), list(self.stack))

@@ -33,6 +33,9 @@ class ProofStep:
         self.substitution = substitution # substitution that matches them
         self.disjoint = disjoint # disjoint requirements inherited from them
 
+        # cache normal proofs after first construction
+        self._normal_proof = None
+
     def __repr__(self):
         return f"ProofStep(conclusion=[{self.rule.consequent.label}] {' '.join(self.conclusion)})"
 
@@ -55,6 +58,20 @@ class ProofStep:
         for dep in self.dependencies.values():
             steps.extend(dep.all_steps(explored))
         return steps
+
+    # recursively build proof label sequence
+    def normal_proof(self):
+
+        # build proof if not cached
+        if self._normal_proof is None:
+            np = ()
+            for hyp in self.rule.hypotheses:
+                np += self.dependencies[hyp.label].normal_proof()
+            np += (self.rule.consequent.label,)
+            self._normal_proof = np
+
+        # return proof
+        return self._normal_proof
 
 """
 Apply a rule to a sequence of dependencies, each a previous proof step 
@@ -315,12 +332,32 @@ if __name__ == "__main__":
 
     import os
     fpath = os.path.join(os.environ["HOME"], "metamath", "set.mm")
+    # db = parse(fpath, last_rule = "bijust")
     db = parse(fpath)
     print("parsed.")
 
     # verify_all(db)
-    verify_all(db, stop=20000)
+    # verify_all(db, stop=20000)
     # verify_compressed_proof(db, db.rules['ax5d'])
+
+    # check proof string reconstruction
+    for c, claim in enumerate(db.rules.values()):
+
+        # skip non-$p rules (axioms)
+        if claim.consequent.tag != "$p": continue
+
+        # verify
+        root, _ = verify_proof(db, claim)
+
+        print(c, claim)
+        print(claim.consequent.proof)
+
+        # reconstruct normal proof and verify again
+        stmt = claim.consequent
+        proof = root.normal_proof()
+        claim.consequent = Statement(stmt.label, stmt.tag, stmt.tokens, proof)
+        print(claim.consequent.proof[:20])
+        verify_normal_proof(db, claim)
 
     # # TODO: complete following demonstration of solitaire functionality
 

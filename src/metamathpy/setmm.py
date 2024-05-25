@@ -5,7 +5,7 @@ def load_imp():
     # last label before any ax-3 proofs is loowoz
     print('loading..')
     db = md.parse(os.path.join(os.environ["HOME"], "metamath", "set.mm"), last_rule="loowoz")
-    # negation wffs and ax not used
+    # negation wffs and ax-3 not used
     db.rules.pop("wn")
     db.rules.pop("ax-3")
     return db

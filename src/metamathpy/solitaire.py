@@ -2,7 +2,7 @@ from .setmm import load_pl
 from .environment import Environment
 
 def print_env(env):
-    print("proof: " + " ".join(env.proof))
+    print("proof: " + " ".join(map(str, env.proof)))
     print("stack:")
     for s, step in enumerate(env.stack):
         print(" ", s, step)
@@ -14,7 +14,7 @@ if __name__ == "__main__":
     envs = [Environment(db)]
     
     while True:
-        label = input("Enter label (q to quit, r to restart, u to undo): ")
+        label = input("Enter label (q to quit, r to restart, u to undo, 0<i> for index): ")
 
         if label == "q":
             break
@@ -29,9 +29,11 @@ if __name__ == "__main__":
                 print_env(envs[-1])
             continue
 
-        if label not in db.rules:
+        if label[0] != "0" and label not in db.rules:
             print("No rule called {label}, try again.")
             continue
+
+        if label[0] == "0": label = int(label)
 
         env = envs[-1].copy()
         _, msg = env.step(label)
