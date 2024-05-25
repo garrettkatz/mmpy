@@ -69,7 +69,7 @@ class Database:
         # with open(fname, "w") as f: f.write(s)
 
 @profile
-def parse(fpath, max_rules=-1):
+def parse(fpath, max_rules=-1, last_rule=""):
 
     db = Database()
 
@@ -78,6 +78,7 @@ def parse(fpath, max_rules=-1):
     current_tag = None # most recent tag (excluding comments)
     label = None # most recent label
     statement = None # most recent statement
+    rule = None # most recent rule
     frames = [new_frame()] # stack of frames in current scope
 
     # dbg = False
@@ -86,6 +87,7 @@ def parse(fpath, max_rules=-1):
         for n, line in enumerate(f):
 
             if len(db.rules) == max_rules: break
+            if rule is not None and rule.consequent.label == last_rule: break
 
             for token in line.strip().split():
 
