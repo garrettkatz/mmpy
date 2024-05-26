@@ -3,6 +3,7 @@ import sys
 import os
 import random
 import itertools as it
+import numpy as np
 from time import perf_counter
 from ..metamathpy import database as md
 from ..metamathpy import proof as mp
@@ -51,6 +52,10 @@ if __name__ == "__main__":
 
     print("axioms: " + " ".join(k for axs in axioms.values() for k in axs.keys()))
     print("metavars: " + " ".join(wff_labels))
+
+    # make base proof steps for metavars
+    wff_steps = {label: mp.perform(db.rules[label], ()) for label in wff_labels}
+    print("wff steps: ", wff_steps)
 
     # # initialize base of theory dag, starting with floating wffs
     # wff_nodes = {}
@@ -359,6 +364,7 @@ if __name__ == "__main__":
 
     # extract all complete proofs
     proved = {}
+    proofs = {}
     for depth, envs_d in envs.items():
         for e, env in enumerate(envs_d):
 
@@ -369,6 +375,7 @@ if __name__ == "__main__":
             conc = step.conclusion
             if conc not in proved: proved[conc] = []
             proved[conc].append((depth,e))
+            proofs[conc] = step.normal_proof()
 
     ents = {k: v for (k,v) in proved.items() if k[0] == "|-"}
 
@@ -395,6 +402,16 @@ if __name__ == "__main__":
 
     for dep in sorted(proofs_at.keys()): print(dep, proofs_at[dep])
 
+    # 3 & 2 \\
+    # 4 & 5 \\
+    # 5 & 12 \\
+    # 6 & 62 \\
+    # 7 & 119 \\
+    # 8 & 936 \\
+    # 9 & 1659 \\
+    # 10 & 17612 
+
+
     # show two proofs for same claim
     print("2 different proofs:")
     for (conc, pts)in ents.items():
@@ -404,8 +421,85 @@ if __name__ == "__main__":
         for d,e in pts:
             print(envs[d][e].proof)        
 
-        break        
+        break
+    print()
 
+    # check that as long as there are no claims with multiple proofs, is every proof_step a distinct conclusion?
+    all_steps = {} # memory address -> step object
+    for depth, envs_d in envs.items():
+        for e, env in enumerate(envs_d):
+            for step in env.steps:
+                all_steps[id(step)] = step
+                # print(depth,e,id(step),step)
+
+    all_concs = set()
+    for sid, step in all_steps.items():
+        all_concs.add(step.conclusion)
+        # print(sid, " ".join(step.conclusion))
+
+    # This check is wrong!! different environments can duplicate "wff ps" used at different times during the different proofs.
+    print(f"Surprise: {len(all_concs)} distinct conclusions != {len(all_steps)} distinct steps in memory")
+
+    # print("the normal proofs themselves:")
+    # for (conc, proof) in proofs.items():
+    #     print(" ".join(conc))
+    #     print("   ", " ".join(proof))
+
+    # for each proof, count how many other proofs use it.
+    # another proof "uses" it if its normal proof is a substring of the other proof,
+    # and the other proof has one more stack entry after the subsequence than before
+    # in fact, given that it itself is a valid proof, the second condition is already implied.
+    # (of course, shallower steps will be used by more, but within layer?)
+    # (can you say anything stronger past max_depth?  will all proof steps eventually be used equally?)
+    # (something like the exponential(?) growth rate of superproofs that use each theorem?)
+
+    print("\n*** depth containment relations:\n")
+
+    subdeps, superdeps = {}, {}
+    for (conc, prf1), prf2 in it.product(proofs.items(), proofs.values()):
+        if len(prf1) >= len(prf2): continue
+        
+        if conc not in subdeps:
+            subdeps[conc] = len(prf1)
+            superdeps[conc] = []
+
+        if " ".join(prf1) in " ".join(prf2):
+            superdeps[conc].append(len(prf2))
+
+    # for conc in subdeps:
+    #     # if len(superdeps[conc]) == 0: continue
+    #     # if conc[0] == "wff": continue
+    #     print(subdeps[conc], ": ", " ".join(conc))
+    #     print("is in:", superdeps[conc])
+
+    # scatdat = np.array([(subdeps[conc], d) for conc in subdeps for d in superdeps[conc]])
+    # x, y = (scatdat + .5*np.random.rand(*scatdat.shape)).T
+    # pt.plot(x, y, 'k.')
+
+    histdat = np.array([(subdeps[conc], len(superdeps[conc])) for conc in subdeps])
+    deps = [d for d in range(2,max_depth+1) if (histdat[:,0] == d).any() and (histdat[histdat[:,0]==d,1] > 0).any()]
+    fig, axs = pt.subplots(1, len(deps), figsize=(6.5,2))
+    for d,dep in enumerate(deps):
+        idx = histdat[:,0] == dep
+        axs[d].hist(histdat[idx,1])#, bins = np.arange(histdat[idx,1].max()+1)-.5)
+        axs[d].set_title(f"Proof length {dep}")
+        if d > 0: axs[d].set_yscale("log")
+    fig.supxlabel("Number of superproofs")
+    fig.supylabel("Frequency")
+    pt.tight_layout()
+    pt.savefig("superproofs.eps")
+    pt.show()
+
+    # containers = {}
+    # for d1 in range(max_depth);
+    #     for env1 in envs[d1]:
+    #         (step,) = env1.stack
+    #         subconc = step.conclusion
+    #         subproof = step.normal_proof()
+    #         for d2 in range(1,max_depth+1):
+    #             for env2 in envs[d2]:
+    #                 (step,) = env2.stack
+    #                 superproof = step.normal_proof()
 
     # # BFS on wffs
     # max_depth = 2
