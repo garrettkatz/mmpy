@@ -16,10 +16,29 @@ if __name__ == "__main__":
     from matplotlib import rcParams
     rcParams["font.family"] = "serif"
 
+    # db = ms.load_imp(fpath="/home/lightop/nexus/grants/nsf_aiming/set_id_normal.mm")
     db = ms.load_imp()
     # db = ms.load_ni()
     # db = ms.load_pl()
     # db.print()
+
+    # proof length and size (uncompressed)
+    def proof_metrics(root):
+        size = len(root.conclusion)
+        leng = 1
+        for dep in root.dependencies.values():
+            dsize, dleng = proof_metrics(dep)
+            size += dsize
+            leng += dleng
+        return size, leng
+
+    # get proof size for idALT
+    # uncompressed: 40 steps, 232 size
+    root, steps = mp.verify_proof(db, db.rules["idALT"])
+    # size = sum(map(len, steps.keys())) # keys are conclusions
+    size, leng = proof_metrics(root)
+    for s, step in enumerate(steps.values()): print(s, " ".join(step.conclusion))
+    input(f"idALT: {len(steps)} distinct step conclusions, {leng} proof length, {size} proof size...")
 
     # get axioms, split into wff and |-
     axioms = {"wff": {}, "|-": {}}
@@ -365,6 +384,8 @@ if __name__ == "__main__":
     # extract all complete proofs
     proved = {}
     proofs = {}
+    psizes = {}
+    plengs = {}
     for depth, envs_d in envs.items():
         for e, env in enumerate(envs_d):
 
@@ -376,6 +397,7 @@ if __name__ == "__main__":
             if conc not in proved: proved[conc] = []
             proved[conc].append((depth,e))
             proofs[conc] = step.normal_proof()
+            psizes[conc], plengs[conc] = proof_metrics(step)
 
     ents = {k: v for (k,v) in proved.items() if k[0] == "|-"}
 
@@ -392,6 +414,7 @@ if __name__ == "__main__":
     print(len([v for v in ents.values() if len(v) > 1]))
     print("how many with different length proofs?")
     print(len([v for v in ents.values() if len(set(list(zip(*v))[0])) > 1]))
+    print(f"largest size = {max(psizes.values())}, leng = {max(plengs.values())}")
 
     print("how many complete proofs at each depth?")
     proofs_at = {}

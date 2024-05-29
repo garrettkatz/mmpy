@@ -9,6 +9,16 @@ from ..metamathpy import database as md
 from ..metamathpy import proof as mp
 from ..metamathpy import setmm as ms
 
+# proof length and size (uncompressed)
+def proof_metrics(root):
+    size = len(root.conclusion)
+    leng = 1
+    for dep in root.dependencies.values():
+        dsize, dleng = proof_metrics(dep)
+        size += dsize
+        leng += dleng
+    return size, leng
+
 if __name__ == "__main__":
 
     import matplotlib.pyplot as pt
@@ -59,7 +69,7 @@ if __name__ == "__main__":
     assert msg == ""
     print(proofs)
 
-    for itr in range(3):
+    for itr in range(4):
 
         print(f"\n *** itr {itr}\n")
 
@@ -72,8 +82,8 @@ if __name__ == "__main__":
                 ent_it = it.product(proofs["|-"], repeat=len(rule.essentials))
 
 
-                ! ONCe you commit to the wffs, just substitute into the essentials and they are already determined.
-                if you dict all conclusions so far, you can lookup immediately if essential has been proved, skip if not.
+                # ! ONCe you commit to the wffs, just substitute into the essentials and they are already determined.
+                # if you dict all conclusions so far, you can lookup immediately if essential has been proved, skip if not.
     
                 for wff_proofs, ent_proofs in it.product(wff_it, ent_it):
     
@@ -101,12 +111,16 @@ if __name__ == "__main__":
         print(f"\n{len(proofs['wff'])} wff proofs, {len(proofs['|-'])} |- proofs")
 
     concs = set()
+    sizes = {}
+    lengs = {}
     for p, (proof, step) in enumerate(proofs["|-"].items()):
         print(p, " ".join(proof), " ".join(step.conclusion))
         if " ".join(step.conclusion) == "( ph -> ph )": input('!')
         concs.add(step.conclusion)
+        sizes[step.conclusion], lengs[step.conclusion] = proof_metrics(step)
 
     print(f"{len(concs)} distinct conclusions, {len(proofs['|-'])} distinct proofs, {len(fails)} invalid proofs")
+    print(f"max size, leng = {max(sizes.values())}, {max(lengs.values())}")
 
 
 

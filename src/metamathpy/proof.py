@@ -248,15 +248,16 @@ def verify_compressed_proof(database, claim):
 
     # initialize buffer that gets dereferenced by step pointers
     proof_steps = []
+    proof_step_dict = {}
     # steps for claim hypotheses
     for hypothesis in claim.hypotheses:
         conclusion, rule = tuple(hypothesis.tokens), database.rules[hypothesis.label]
         proof_steps.append(ProofStep(conclusion, rule))
+        proof_step_dict[conclusion] = proof_steps[-1]
     # step labels
     proof_steps += step_labels
 
     # process each step in proof
-    proof_step_dict = {}
     for step, pointer in enumerate(step_pointers):
 
         # tag previous step if requested
