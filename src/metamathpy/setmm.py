@@ -12,7 +12,7 @@ def load_imp(fpath = None):
     db.rules.pop("ax-3")
     return db
 
-def load_ni():
+def load_ni(fpath = None):
     # last label before any new boolean operator definitions is bijust, "rule" 441
     print('loading..')
     if fpath is None:
@@ -20,13 +20,20 @@ def load_ni():
     db = md.parse(fpath, last_rule="bijust")
     return db
 
-def load_pl():
+def load_pl(fpath = None):
 
     # last label before any FOL (universal quantifier) is xorexmid, it is "rule" 2849 (including hypotheses)
     print('loading..')
     if fpath is None:
         fpath = os.path.join(os.environ["HOME"], "metamath", "set.mm")
     db = md.parse(fpath, last_rule="xorexmid")
+    return db
+
+def load_all(fpath = None):
+    print('loading..')
+    if fpath is None:
+        fpath = os.path.join(os.environ["HOME"], "metamath", "set.mm")
+    db = md.parse(fpath)
     return db
 
 if __name__ == "__main__":

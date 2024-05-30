@@ -64,11 +64,11 @@ class ProofStep:
 
         # build proof if not cached
         if self._normal_proof is None:
-            np = ()
+            prf = ()
             for hyp in self.rule.hypotheses:
-                np += self.dependencies[hyp.label].normal_proof()
-            np += (self.rule.consequent.label,)
-            self._normal_proof = np
+                prf += self.dependencies[hyp.label].normal_proof()
+            prf += (self.rule.consequent.label,)
+            self._normal_proof = prf
 
         # return proof
         return self._normal_proof
@@ -137,7 +137,7 @@ def perform(rule, dependencies):
 
 """
 Conduct one step of a proof
-Applies given rule to top of stack; modifies stack in place
+Applies given rule to top of stack; pops top of stack in place
 asserts disjoint variable requirements if provided
 Returns the resulting proof step object and status message
 If step is unsound, proof steps is None, otherwise message is ""
