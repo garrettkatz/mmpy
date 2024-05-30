@@ -202,8 +202,8 @@ def verify_normal_proof(database, claim):
         conclusion = proof_step.conclusion
 
         # save new proof steps
-        if proof_step.conclusion not in proof_steps:
-            proof_steps[proof_step.conclusion] = proof_step
+        if conclusion not in proof_steps:
+            proof_steps[conclusion] = proof_step
 
         # push proof step onto stack
         stack.append(proof_step)
