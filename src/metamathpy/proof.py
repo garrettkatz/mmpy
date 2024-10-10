@@ -306,8 +306,6 @@ def verify_compressed_proof(database, claim):
            f"proved statement {' '.join(stack[0].conclusion)} does not match theorem {' '.join(claim.consequent.tokens)}"
     assert len(stack) == 1, f"non-singleton stack {stack} after proof"
 
-    assert len(proof_labels) == len(proof_steps), \
-           f"proof_labels and proof_steps have different lengths: {len(proof_labels)} != {len(proof_steps)}"
     # return root of proof graph and dictionary of nodes
     return stack[0], proof_step_dict, proof_labels
 
