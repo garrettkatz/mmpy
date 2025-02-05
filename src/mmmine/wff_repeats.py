@@ -148,7 +148,7 @@ if __name__ == "__main__":
     from matplotlib import rcParams
     rcParams["font.family"] = "serif"
 
-    pt.figure(figsize=(5,3))
+    pt.figure(figsize=(3.75,3))
     pt.plot(lens[is_def], counts[is_def], mfc='w', mec='k', marker='o', markersize=10, linestyle='none', label="Definition", zorder=2)
     pt.plot(lens[(dominators == 0) & ~is_def], counts[(dominators == 0) & ~is_def], 'k+', label="Pareto optimal", zorder=1)
     pt.plot(lens[(dominators >= 1) & ~is_def], counts[(dominators >= 1) & ~is_def], 'k.', label="other", zorder=0)
