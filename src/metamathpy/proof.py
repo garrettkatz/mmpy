@@ -163,17 +163,9 @@ def conduct(rule, stack, disjoint=None):
     if disjoint is not None:
         if step.disjoint > disjoint:
             return None, f"missing $d requirements: {step.disjoint} - {disjoint} = {step.disjoint - disjoint}"
-        # assert step.disjoint <= disjoint, \
-        # f"missing $d requirements: {step.disjoint} - {disjoint} = {step.disjoint - disjoint}"
 
     # return resulting proof step and normal status
     return step, ""
-
-    # # wrap dependencies in dictionary by hypothesis label
-    # dependencies = {hyp.label: dep for (hyp, dep) in zip(rule.hypotheses, dependencies)}
-
-    # # return results of step
-    # return ProofStep(conclusion, rule, dependencies, substitution)
 
 """
 claim: a rule object whose proof will be verified
