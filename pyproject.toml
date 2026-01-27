@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "metamath-py"
-version = "0.0.7"
+version = "0.0.8"
 authors = [
   { name="Garrett E. Katz", email="garrett.katz@gmail.com" },
 ]

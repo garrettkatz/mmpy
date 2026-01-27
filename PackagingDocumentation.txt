@@ -133,5 +133,11 @@ Upon completion the package should be viewable on PyPi at the link https://test.
 
 Congrats! The Package should be able to be downloaded and installed as normal
 
+************
 
+installing locally in edit mode
+
+mmpy$ python3 -m venv mmpy_venv # setting up for the first time
+mmpy$ source mmpy_venv/bin/activate
+mmpy$ pip install -e .
 

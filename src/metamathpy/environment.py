@@ -2,7 +2,7 @@
 Run from top-level directory with
 $ python -m src.metamathpy.environment
 """
-from .proof import conduct
+from metamath.proof import conduct
 
 """
 Environment steps through normal proof verification process
@@ -75,7 +75,7 @@ class Environment:
 
 if __name__ == "__main__":
 
-    from .database import *
+    from metamath.database import *
     import os
     fpath = os.path.join(os.environ["HOME"], "metamath", "set.mm")
     db = parse(fpath)

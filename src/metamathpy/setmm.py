@@ -1,5 +1,6 @@
 import os
-from ..metamathpy import database as md
+# from ..metamathpy import database as md
+from metamathpy import database as md
 
 def load_imp(fpath = None):
     # last label before any ax-3 proofs is loowoz

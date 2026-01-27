@@ -3,7 +3,7 @@ Run from top-level directory with
 $ python -m src.metamathpy.proof
 """
 import itertools as it
-from .unification import substitute, unify
+from metamathpy.unification import substitute, unify
 
 try:
     profile
@@ -303,8 +303,8 @@ def verify_all(database, start=0, stop=-1):
 
 if __name__ == "__main__":
 
-    # from metamathpy.database import *
-    from .database import *
+    from metamathpy.database import *
+    # from .database import *
 
     # fpath = "p2.mm"
     # db = parse(fpath)
