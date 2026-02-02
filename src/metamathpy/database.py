@@ -40,6 +40,7 @@ class Rule:
     def __str__(self):
         s = f"{self.consequent.label} {self.consequent.tag} {' '.join(self.consequent.tokens)} $.\n"
         s += f"disjoint variable sets: {self.disjoint}\n"
+        s += f"hypotheses:\n"
         for hypothesis in self.hypotheses:
             s += f"  {hypothesis.label} {hypothesis.tag} {' '.join(hypothesis.tokens)} $.\n"
         return s

@@ -37,6 +37,13 @@ def load_all(fpath = None):
     db = md.parse(fpath)
     return db
 
+def load_to(last_rule, fpath = None):
+    print('loading..')
+    if fpath is None:
+        fpath = os.path.join(os.environ["HOME"], "metamath", "set.mm")
+    db = md.parse(fpath, last_rule=last_rule)
+    return db
+
 if __name__ == "__main__":
 
     # db = load_imp()

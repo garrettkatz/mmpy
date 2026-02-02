@@ -300,6 +300,9 @@ def verify_all(database, start=0, stop=-1):
 
         verify_proof(database, claim)
 
+def normal_to_compressed():
+    # or do this as post processing in mm?
+    raise NotImplementedError
 
 if __name__ == "__main__":
 
