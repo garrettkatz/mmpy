@@ -1,8 +1,10 @@
+from line_profiler import profile
 import numpy as np
 import pickle as pk
 from time import perf_counter
 import itertools as it
 import metamathpy.proof as mp
+from metamathpy.unification import substitute
 
 class Pile:
 
@@ -58,6 +60,7 @@ class Pile:
             step.conclusion in background
             for step in self.trace])
 
+    @profile
     def children(self):
         """
         Use with care; yields in-place modifications of self as each child
@@ -85,17 +88,41 @@ class Pile:
 
             else:
 
-                # rule signature: floating and essential
+                # apply rule to all wff combinations for metavariables
                 wffs = list(self.steps["wff"].values())
-                ents = list(self.steps["|-"].values())
-                feeds = (wffs,)*len(rule.floatings) + (ents,)*len(rule.essentials)
-                for deps in it.product(*feeds):
+                for deps in it.product(wffs, repeat=len(rule.floatings)):
+                    print(deps)
 
+                    # set up substitution
+                    substitution = {}
+                    for (hyp, dep) in zip(rule.floatings, deps):
+                        # assert matching types (only works for PL)
+                        assert hyp.tokens[0] == dep.conclusion[0] == "wff"
+                
+                        # update substitution
+                        variable = hyp.tokens[1]
+                        substitution[variable] = dep.conclusion[1:]
+
+                    # apply substitution and check if essentials are satisfied
+                    satisfied = True
+                    for hyp in rule.essentials:
+                        substituted = substitute(hyp.tokens, substitution)
+                        if substituted not in self.steps["|-"]:
+                            satisfied = False
+                            break
+                        deps = deps + (self.steps["|-"][substituted],)
+
+                    # if not, move on to next combo
+                    if not satisfied: continue
+
+                    print(deps)
+                    input('.')
+
+                    # otherwise, get conclusion and make sure inference checks out
                     step, status = mp.perform(rule, deps)
+                    assert status == ""
 
-                    # skip invalid rule applications
-                    if status != "": continue
-
+                    # append resulting proof step while yielding this child
                     tokens = step.conclusion
                     typecode = tokens[0] # wff or |-
                     if tokens not in self.steps[typecode]:
@@ -107,6 +134,29 @@ class Pile:
                         # *** undo changes for next child, careful with this
                         self.steps[typecode].pop(tokens)
                         self.trace.pop()
+
+                # # rule signature: floating and essential
+                # wffs = list(self.steps["wff"].values())
+                # ents = list(self.steps["|-"].values())
+                # feeds = (wffs,)*len(rule.floatings) + (ents,)*len(rule.essentials)
+                # for deps in it.product(*feeds):
+
+                #     step, status = mp.perform(rule, deps)
+
+                #     # skip invalid rule applications
+                #     if status != "": continue
+
+                #     tokens = step.conclusion
+                #     typecode = tokens[0] # wff or |-
+                #     if tokens not in self.steps[typecode]:
+                #         self.steps[typecode][tokens] = step
+                #         self.trace.append(step)
+    
+                #         yield self
+        
+                #         # *** undo changes for next child, careful with this
+                #         self.steps[typecode].pop(tokens)
+                #         self.trace.pop()
 
         return
 
@@ -131,12 +181,12 @@ if __name__ == "__main__":
 
     import metamathpy.setmm as ms
 
-    # loader = ms.load_ni
-    loader = ms.load_pl
+    loader = ms.load_ni
+    # loader = ms.load_pl
     # loader = lambda : ms.load_to("mpd")
     ax_only = False
-    max_depth = 3
-    max_time = 10#1 * 60 * 60
+    max_depth = 1
+    max_time = np.inf#1 * 60 * 60
 
     # question: for a given max depth, how many set.mm theorems can you validly re-prove (without using their dependents)
     # quick way before piles add rules for proof steps: recursively find rules used in the proof step's proof and make sure all come before the re-proved one
@@ -191,9 +241,9 @@ if __name__ == "__main__":
                 if set(proof) <= set(rule_labels[:n]):
                     reproved[toks] = proof
 
-        # track proof step frequencies
-        for conc in list(leaf.steps["wff"].values()) + list(leaf.steps["|-"].values()):
-            conc_freqs[conc] = conc_freqs.get(conc, 0) + 1
+        # # track proof step frequencies
+        # for conc in list(leaf.steps["wff"].values()) + list(leaf.steps["|-"].values()):
+        #     conc_freqs[conc] = conc_freqs.get(conc, 0) + 1
 
         # print(leaf)
         # print(conc_freqs)
@@ -261,15 +311,14 @@ if __name__ == "__main__":
         duration = perf_counter() - start
         if duration > max_time: break
 
-
-    # print(leaf)
-    unifreqs = set(conc_freqs.values())
-    freq_freqs = {f: list(conc_freqs.values()).count(f) for f in unifreqs}
-    print(freq_freqs)
-    for conc, freq in conc_freqs.items():
-        if freq == max(unifreqs): print(conc)
+    # # print(leaf)
+    # unifreqs = set(conc_freqs.values())
+    # freq_freqs = {f: list(conc_freqs.values()).count(f) for f in unifreqs}
+    # print(freq_freqs)
     # for conc, freq in conc_freqs.items():
-    #     print(freq, conc)
+    #     if freq == max(unifreqs): print(conc)
+    # # for conc, freq in conc_freqs.items():
+    # #     print(freq, conc)
 
     # print(f"\nDistinct wffs:")
     # for c, conc in enumerate(all_steps["wff"].keys()): print(c, " ".join(conc))
@@ -283,16 +332,17 @@ if __name__ == "__main__":
     # # print("\nlast leaf:\n")
     # # print(last)
     # print(f"\n{num_leaves} leaves total at depth {max_depth}, {len(all_steps['wff'])} wffs and {len(all_steps['|-'])} |-s")
-    # print(f"Took {duration:.3f}s ({duration/60:.3f}min, {duration/(60*60):.3f}hr)")
     # print(f"si? {si_tok in all_steps['|-']}")
     # print(f"et? {et_tok in all_steps['|-']}")
     # print(f"id? {id_tok in all_steps['|-']}")
 
-    # for n, (toks, proof) in enumerate(reproved.items()):
-    #     lab, _ = goals[toks]
-    #     step, _ = mp.verify_compressed_proof(db, db.rules[lab])
-    #     print(f"{n: 3d}  |np|={len(proof)} [{lab}] {' '.join(toks)} <{' '.join(proof)}>  VS  <{' '.join(step.normal_proof())}>")
-    # print(f"{len(reproved)} of {len(goals)} reproved")
+    for n, (toks, proof) in enumerate(reproved.items()):
+        lab, _ = goals[toks]
+        step, _ = mp.verify_compressed_proof(db, db.rules[lab])
+        print(f"{n: 3d}  |np|={len(proof)} [{lab}] {' '.join(toks)} <{' '.join(proof)}>  VS  <{' '.join(step.normal_proof())}>")
+    print(f"{len(reproved)} of {len(goals)} reproved")
 
-    # with open(f"ida_d{max_depth}.pkl", "wb") as f: pk.dump(reproved, f)
+    with open(f"ida_d{max_depth}.pkl", "wb") as f: pk.dump(reproved, f)
+
+    print(f"Took {duration:.3f}s ({duration/60:.3f}min, {duration/(60*60):.3f}hr)")
 
