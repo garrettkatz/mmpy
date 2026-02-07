@@ -16,6 +16,11 @@ Loading a .mm file (may take a minute for large databases):
 >>> db = md.parse(os.path.join(os.environ["HOME"], "metamath", "set.mm"))
 ```
 
+Change the path depending on where you installed metamath or downloaded set.mm, which you can quickly do with
+```
+wget https://raw.githubusercontent.com/metamath/set.mm/refs/heads/develop/set.mm
+```
+
 Access any statement by its label, for example the major premise of the modus ponens axiom:
 
 ```

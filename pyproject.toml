@@ -1,19 +1,22 @@
 [build-system]
-requires = ["setuptools>=61.0"]
+requires = ["setuptools >= 77.0.3"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "metamath-py"
-version = "0.0.8"
+license = "MIT"
+license-files = ["LICENSE"]
+version = "0.0.9"
 authors = [
-  { name="Garrett E. Katz", email="garrett.katz@gmail.com" },
+  { name="Garrett E. Katz"},
+  { name="Chad T. Smith" },
+  { email="garrett.katz@gmail.com" },
 ]
 description = "A Python interface to Metamath"
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 

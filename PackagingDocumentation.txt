@@ -137,7 +137,11 @@ Congrats! The Package should be able to be downloaded and installed as normal
 
 installing locally in edit mode
 
-mmpy$ python3 -m venv mmpy_venv # setting up for the first time
-mmpy$ source mmpy_venv/bin/activate
+mmpy$ python3 -m venv .mmpy # setting up for the first time
+mmpy$ source .mmpy/bin/activate
 mmpy$ pip install -e .
 
+************
+
+some of the above seems to be outdated.  if you get metadata errors, try in the .mmpy venv:
+mmpy$ pip install --upgrade "twine>=6.0.0" "packaging>=24.2"
