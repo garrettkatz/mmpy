@@ -26,7 +26,20 @@ Frame:
         list of disjoint variables if tag is "d"
         hypothesis if tag in "ef"
 """
+
 Statement = namedtuple('Statement', ('label', 'tag', 'tokens', 'proof'))
+# class Statement:
+#     def __init__(self, label, tag, tokens, proof):
+
+#         self.label = label
+#         self.tag = tag
+#         self.tokens = tokens
+#         self.proof = proof
+
+#     def __str__(self):
+#         s = f"{self.label} {self.tag} {' '.join(self.tokens)}"
+#         if self.tag == "$p": s += f"$= {' '.join(self.proof)} $."
+#         return s
 
 class Rule:
     def __init__(self, consequent, essentials, floatings, disjoint, variables):
@@ -44,6 +57,14 @@ class Rule:
         for hypothesis in self.hypotheses:
             s += f"  {hypothesis.label} {hypothesis.tag} {' '.join(hypothesis.tokens)} $.\n"
         return s
+
+    def mm(self, prefix=""):
+        essentials = [
+            f"{prefix}  {essential.label} $e {' '.join(essential.tokens)}"
+            for essential in self.essentials]
+        consequent = f"{prefix}  {self.consequent.label} {self.consequent.tag} {' '.join(self.consequent.tokens)} "
+        if self.consequent.tag == "$p": consequent += f"$= \n{prefix}    {' '.join(self.consequent.proof)} $."
+        return prefix+"${\n" + "\n".join(essentials + [consequent]) + "\n" + prefix + "$}"
 
 def new_frame(): return {tag: [] for tag in "cvdfe"}
 
