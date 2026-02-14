@@ -1,38 +1,46 @@
 change assertions to returned status codes
-substitution is the bottleneck, try c-extension
+
+speed ups
+    substitution is a bottleneck
+    X tried cython
+    try c-extension?
+    try https://pybind11.readthedocs.io/en/stable/basics.html
+
 test database and proof
     mm book 4.2.4 has good test case for $d violation
+
 routine to convert any proof step to a "new rule"
-setup.py package
+routine to convert any proof step to compressed form (maybe use normal form helper as intermediary)
 
-rule:
-    is this:
-        list of floating/essential hypotheses and conclusion
-    rule data structure instead of scope:
-        each rule has pointers to the hypotheses etc. in its scope.
-
-inference:
-    an inference does this:
-        match all hyps of existing rule against a list of dependencies
-            dependencies can be floating/essential hypotheses or other proved a/p statements
-        apply match substitution to conclusion of existing rule
-    an inference data structure maintains this:
-        pointer to the existing rule used as justification
-        pointer to the conclusion with substitution applied
-        pointer to the dependencies
-        the substitution itself
-
-proof of a rule:
-    directed graph of inferences, dependencies are the edges
-    leaves are the rule's hypotheses, or hypothesis-less axioms and theorems
-
-any statement in a proof can be viewed as a set of "new" rules
-    the statement is the conclusion of the new rules
-    the hypotheses of the new rules are any frontier of statements in a graph search backwards from the conclusion
-        excluding axioms, they do not need to be listed as essential hypotheses of the new rules
-    not all really new if
-        match substitution was identity
-        or it "standardizes" to an existing rule (same after renaming variables alphabetically)
-
-    default (but maybe not general enough) is to use the "final frontier", i.e. frontier only containing $f or $e in proof's scope?
-
+documentation
+    rule:
+        is this:
+            list of floating/essential hypotheses and conclusion
+        rule data structure instead of scope:
+            each rule has pointers to the hypotheses etc. in its scope.
+    
+    inference:
+        an inference does this:
+            match all hyps of existing rule against a list of dependencies
+                dependencies can be floating/essential hypotheses or other proved a/p statements
+            apply match substitution to conclusion of existing rule
+        an inference data structure maintains this:
+            pointer to the existing rule used as justification
+            pointer to the conclusion with substitution applied
+            pointer to the dependencies
+            the substitution itself
+    
+    proof of a rule:
+        directed graph of inferences, dependencies are the edges
+        leaves are the rule's hypotheses, or hypothesis-less axioms and theorems
+    
+    any statement in a proof can be viewed as a set of "new" rules
+        the statement is the conclusion of the new rules
+        the hypotheses of the new rules are any frontier of statements in a graph search backwards from the conclusion
+            excluding axioms, they do not need to be listed as essential hypotheses of the new rules
+        not all really new if
+            match substitution was identity
+            or it "standardizes" to an existing rule (same after renaming variables alphabetically)
+    
+        default (but maybe not general enough) is to use the "final frontier", i.e. frontier only containing $f or $e in proof's scope?
+    

@@ -63,7 +63,13 @@ class Rule:
             f"{prefix}  {essential.label} $e {' '.join(essential.tokens)}"
             for essential in self.essentials]
         consequent = f"{prefix}  {self.consequent.label} {self.consequent.tag} {' '.join(self.consequent.tokens)} "
-        if self.consequent.tag == "$p": consequent += f"$= \n{prefix}    {' '.join(self.consequent.proof)} $."
+        if self.consequent.tag == "$p":
+            if len(self.consequent.proof) > 0:
+                proof = " ".join(self.consequent.proof)
+            else:
+                proof = "?"
+            # consequent += f"$= \n{prefix}    {proof} $."
+            consequent += f"$= {proof} $."
         return prefix+"${\n" + "\n".join(essentials + [consequent]) + "\n" + prefix + "$}"
 
 def new_frame(): return {tag: [] for tag in "cvdfe"}

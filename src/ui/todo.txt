@@ -1,0 +1,7 @@
+X animate the proof search
+more efficient "rendering" (cache lines, only reprint the dirty ones, and/or single print for entire screen)
+check and branch on mouse support
+cursor in the middle of screen, not top
+move cursor by statement, not by rule
+make view closer to original database file, including comments
+
