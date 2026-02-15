@@ -1,12 +1,12 @@
-## metamath-py
+# metamath-py
 
 A python interface to [Metamath](https://us.metamath.org/)
 
-# install
+## install
 
 `$ pip install --user metamath-py`
 
-# basic usage
+## basic usage
 
 Loading a .mm file (may take a minute for large databases):
 
@@ -117,4 +117,10 @@ Environments can be deep-copied if you want to use them in a branching tree sear
 ((None, ['wph', 'wps'], [ProofStep(conclusion=[wph] wff ph), ProofStep(conclusion=[wps] wff ps)]), '')
 
 ```
+
+## user interface (in-progress)
+
+A TUI (requires [blessed](https://pypi.org/project/blessed/)) that shows live proof searches in a Metamath database:
+
+![mmpy1024](https://github.com/user-attachments/assets/d9e1e7a4-8569-4620-8c48-e3c4b9d66f17)
 
