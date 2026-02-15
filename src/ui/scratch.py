@@ -205,7 +205,7 @@ if __name__ == "__main__":
             rule_offset = 0
             while len(mm_lines) < H:
                 mm_rule = db.rules[rule_labels[rule_index + rule_offset]].mm()
-                mm_lines = mm_lines + mm_rule.split("\n")
+                mm_lines = mm_lines + mm_rule.split("\n") + [""]
                 rule_offset += 1
             mm_lines = mm_lines[:H]
             # mm_code.replace("\n", term.clear_eol + "\n")
@@ -226,8 +226,8 @@ if __name__ == "__main__":
 
             # https://blessed.readthedocs.io/en/latest/measuring.html#
             # print(term.move_xy(0,H-1) + f"[{rule_index} of {len(db.rules)}, {H//2} of {H}, 0 of {W}, {len(searches)} active searches]" + term.clear_eol, end='', flush=True)
-            status_string = f"{len(searches)} active searches, {len(solved)} solved, {len(failed)} failed]"
-            print(term.move_xy(0,H-1) + status_string + term.clear_eol, end='', flush=True)
+            status_string = f"[{len(searches)} active searches, {len(solved)} solved, {len(failed)} failed]"
+            print(term.move_xy(0,H-1) + term.white_on_green(status_string + term.clear_eol), end='', flush=True)
 
             # # the clear_eol (end of line) could be useful when backtracking the iterative deepening proof search.
             # print(term.move_xy(10, 5) + f"here" + term.move_xy(12,3) + "also here" + term.clear_eol, end='', flush=True)

@@ -60,9 +60,9 @@ class Rule:
 
     def mm(self, prefix=""):
         essentials = [
-            f"{prefix}  {essential.label} $e {' '.join(essential.tokens)}"
+            f"{essential.label} $e {' '.join(essential.tokens)}"
             for essential in self.essentials]
-        consequent = f"{prefix}  {self.consequent.label} {self.consequent.tag} {' '.join(self.consequent.tokens)} "
+        consequent = f"{self.consequent.label} {self.consequent.tag} {' '.join(self.consequent.tokens)} "
         if self.consequent.tag == "$p":
             if len(self.consequent.proof) > 0:
                 proof = " ".join(self.consequent.proof)
@@ -70,7 +70,10 @@ class Rule:
                 proof = "?"
             # consequent += f"$= \n{prefix}    {proof} $."
             consequent += f"$= {proof} $."
-        return prefix+"${\n" + "\n".join(essentials + [consequent]) + "\n" + prefix + "$}"
+        if len(essentials) > 0:
+            return prefix + "${\n" + f"{prefix}  " + f"\n{prefix}  ".join(essentials + [consequent]) + "\n" + prefix + "$}"
+        else:
+            return prefix + consequent
 
 def new_frame(): return {tag: [] for tag in "cvdfe"}
 
