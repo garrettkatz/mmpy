@@ -20,6 +20,8 @@ Rule:
     consequent: the rule's conclusion statement
     essentials[n]: the nth essential hypothesis statement
     floatings[n]: the nth floating hypothesis statement
+    disjoint: set of disjoint variable pairs
+    variables: set of metavariables in rule's scope
 Frame:
     frame[tag][n]: the nth
         constant or variable symbol if tag in "cv"
