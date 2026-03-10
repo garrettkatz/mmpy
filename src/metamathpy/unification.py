@@ -77,22 +77,23 @@ def constant_sum(s, n):
         for i in range(1,s-n+2):
             for t in constant_sum(s-i, n-1): yield (i,) + t
 
+
 # all n-tuples (n>0) of (p>0,m>0) pairs if positive integers p with multiplicities m, with constant sum s>=sum(m)
 def constant_multisum(s, m):
+    # print(f"starting cms({s=},{m=})")
     if len(m) == 1:
         q = s // m[0]
         if s == q*m[0]: yield (q,)
     else:
-        q = s // m[0]
-        for i in range(1,q):
-            for t in constant_multisum(s-q*i, m[1:]): yield (i,) + t
-
-# maybe this should be sum bounded by s, not constant at s
-def bounded_multisum(s, m):
-    if len(m) == 1: yield (s // m[0],)
-    else:
-        for i in range(1,s-n+2):
-            for t in bounded_multisum(s-i, n-1): yield (i,) + t
+        slack = s - sum(m[1:])
+        # print(f"{slack=}")
+        q = slack // m[0]
+        # print(f"{q=}")
+        if slack == q*m[0]:
+            for i in range(1,q+1):
+                # print(f"{i=}, im={i*m[0]}, {s=}, s-im={s-i*m[0]}")
+                for t in constant_multisum(s-i*m[0], m[1:]):
+                    yield (i,) + t
 
 class Scheme:
     def __init__(self, tokens, variables):
@@ -141,9 +142,6 @@ class Scheme:
 
             # substitutions consistent, so yield match
             yield substitution
-                
-        
-            
 
 if __name__ == "__main__":
 
@@ -153,7 +151,10 @@ if __name__ == "__main__":
     import metamathpy.proof as mp
 
     # for t in constant_sum(5, 3): print(t)
-    for t in constant_multisum(6, (2,1,)): print(t)
+    s, m = 3, (2,2,)
+    for t in constant_multisum(s, m):
+        print(t)
+        assert sum(p*mp for (p,mp) in zip(t,m)) == s
     input('.')
 
     db = ms.load_pl()
