@@ -90,12 +90,34 @@ def constant_multisum(s, m):
             for i in range(1,q+1):
                 for t in constant_multisum(s-i*m[0], m[1:]): yield (i,) + t
 
+def match_helper(vartoks, chunks, tokens, substitution=None):
+    # omit the first chunk, so schema tail is vartoks[0]+chunks[0]+vartoks[1]+chunks[1]+...
+    if substitution is None: substitution = {}
+
+    # base case: no chunks left
+    if len(chunks) == 0:
+        # current substitution works if no tokens left either
+        if len(tokens) == 0: yield substitution
+
+    # otherwise, iterate over each possible position for next chunk
+    else:
+        n = len(chunks[0])
+        v = vartoks[0]
+        # scan remaining positions
+        for t in range(1, len(tokens)-n+1):
+            # check for match and consistent substitution
+            if chunks[0] == tokens[t:t+n] and substitution.get(v, tokens[:t]) == tokens[:t]:
+                next_sub = substitution | {v: tokens[:t]}
+                yield from match_helper(vartoks[1:], chunks[1:], tokens[t+n:], next_sub)
+                
+
 class Scheme:
     def __init__(self, tokens, variables):
         self.tokens = tuple(tokens)
         self.variables = tuple(variables)
         self.multiplicities = tuple(tokens.count(v) for v in self.variables)
         self.offsets = tuple(t for (t, token) in enumerate(tokens) if token in variables)
+        self.vartoks = tuple(self.tokens[t] for t in self.offsets)
         self.chunks = tuple(self.tokens[s+1:t] for (s,t) in zip((-1,)+self.offsets, self.offsets+(len(tokens),)))
 
     def __repr__(self):
@@ -116,38 +138,44 @@ class Scheme:
         # typecast to tuple if not already
         tokens = tuple(tokens)
 
-        # no matches if prefix or suffix chunks do not match
+        # no matches if prefix chunk does not match
         if self.chunks[0] != tokens[:len(self.chunks[0])]: return
-        if self.chunks[-1] != tokens[len(tokens)-len(self.chunks[-1]):]: return
 
-        # calculate slack, i.e. required sum of substitution lengths to match
-        slack = len(tokens) - sum(map(len, self.chunks))
+        # # use helper on remainder
+        yield from match_helper(self.vartoks, self.chunks[1:], tokens[len(self.chunks[0]):])
 
-        # enumerate possible lengths of each variable substitution string
-        for sub_lens in constant_multisum(slack, self.multiplicities):
+        # # no matches if prefix or suffix chunks do not match
+        # if self.chunks[0] != tokens[:len(self.chunks[0])]: return
+        # if self.chunks[-1] != tokens[len(tokens)-len(self.chunks[-1]):]: return
 
-            # try building substitution for current substitution lengths
-            substituted = self.chunks[0]
-            substitution = {}
-            failure = False
-            for t, c in zip(self.offsets, self.chunks[1:]):
-                v = self.tokens[t]
-                h = sub_lens[self.variables.index(v)]
-                s = tokens[len(substituted):len(substituted)+h]
-                if v not in substitution:
-                    substitution[v] = s
-                if substitution[v] != s:
-                    failure = True
-                    break
-                if c != tokens[len(substituted)+h:len(substituted)+h+len(c)]:
-                    failure = True
-                    break
-                substituted = substituted + s + c
+        # # calculate slack, i.e. required sum of substitution lengths to match
+        # slack = len(tokens) - sum(map(len, self.chunks))
 
-            if failure: continue
+        # # enumerate possible lengths of each variable substitution string
+        # for sub_lens in constant_multisum(slack, self.multiplicities):
 
-            assert substituted == tokens
-            yield substitution
+        #     # try building substitution for current substitution lengths
+        #     substituted = self.chunks[0]
+        #     substitution = {}
+        #     failure = False
+        #     for t, c in zip(self.offsets, self.chunks[1:]):
+        #         v = self.tokens[t]
+        #         h = sub_lens[self.variables.index(v)]
+        #         s = tokens[len(substituted):len(substituted)+h]
+        #         if v not in substitution:
+        #             substitution[v] = s
+        #         if substitution[v] != s:
+        #             failure = True
+        #             break
+        #         if c != tokens[len(substituted)+h:len(substituted)+h+len(c)]:
+        #             failure = True
+        #             break
+        #         substituted = substituted + s + c
+
+        #     if failure: continue
+
+        #     assert substituted == tokens
+        #     yield substitution
 
     # # this version uses constant_sum without multiplicity
     # def matches(self, tokens):
@@ -192,23 +220,25 @@ if __name__ == "__main__":
     import metamathpy.database as md
     import metamathpy.proof as mp
 
-    # for t in constant_sum(5, 3): print(t)
-    s, m = 7, (2,1,)
-    for t in constant_multisum(s, m):
-        print(t)
-        assert sum(p*mp for (p,mp) in zip(t,m)) == s
-    input('.')
+    # # for t in constant_sum(5, 3): print(t)
+    # s, m = 7, (2,1,)
+    # for t in constant_multisum(s, m):
+    #     print(t)
+    #     assert sum(p*mp for (p,mp) in zip(t,m)) == s
+    # input('.')
 
     db = ms.load_pl()
     # db = ms.load_all()
 
     scheme = Scheme("wff ph".split(" "), {"ph"})
     print(scheme)
-    print(" ".join(scheme.substitute({"ph": ("ps",)})))
+    print("sub'd by ph->ps:", " ".join(scheme.substitute({"ph": ("ps",)})))
     string = "wff ch"
     print(f"matches to {string}:")
     for subst in scheme.matches(string.split(" ")):
-        print({v: ' '.join(s) for (v,s) in subst.items()}, " ".join(scheme.substitute(subst)))
+        subd = scheme.substitute(subst)
+        assert subd == tuple(string.split(" "))
+        print({v: ' '.join(s) for (v,s) in subst.items()}, " ".join(subd))
     input('.')
 
     scheme = Scheme("wff ( ph -> ph )".split(" "), {"ph"})
