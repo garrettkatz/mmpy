@@ -97,20 +97,18 @@ class Scheme:
         # # use helper on remainder
         yield from match_helper(self.vartoks, self.chunks[1:], tokens[len(self.chunks[0]):])
 
-def parse_wff(wff_rules, wff_vars, tokens):
-    # try parsing tokens according to wff rules
-
-    if len(tokens) == 1 and tokens[0] in wff_vars: return True
-
+def parse_wff(wff_rules, variables, tokens):
+    # todo:
+    # reconstruct proof, not just return tf
+    # extend from wff to rules that dont introduce work variables
+    if len(tokens) == 2 and tokens[0] == "wff" and tokens[1] in wff_vars: return True
     for rule in wff_rules:
-        scheme = Scheme(rule.consequent.tokens[1:], rule.variables) # memoize this
-
-        for substitution in scheme.matches(tokens):
-            result = all(parse_wff(wff_rules, wff_vars, v) for v in substitution.values())
+        for substitution in rule.scheme.matches(tokens):
+            result = all(
+                parse_wff(wff_rules, wff_vars, substitute(h.tokens, substitution))
+                for h in rule.hypotheses)
             if result: return True
-
     return False 
-            
 
 if __name__ == "__main__":
 
@@ -132,24 +130,37 @@ if __name__ == "__main__":
     # try parsing a wff with schemes for each rule
     wff_vars = {"ph", "ps", "ch"}
     wff_rules = [db.rules[k] for k in ("wi", "wn")]
+    # tests = [
+    #     ("ph", True),
+    #     ("ps", True),
+    #     ("ch", True),
+    #     ("( ph -> ph )", True),
+    #     ("( ph -> ps )", True),
+    #     ("( ps -> ch )", True),
+    #     ("ps -> ch", False),
+    #     ("( ps ->", False),
+    #     ("ps ch", False),
+    #     ("-. ps", True),
+    #     ("-.", False),
+    # ]
     tests = [
-        ("ph", True),
-        ("ps", True),
-        ("ch", True),
-        ("( ph -> ph )", True),
-        ("( ph -> ps )", True),
-        ("( ps -> ch )", True),
-        ("ps -> ch", False),
-        ("( ps ->", False),
-        ("ps ch", False),
-        ("-. ps", True),
-        ("-.", False),
+        ("wff ph", True),
+        ("wff ps", True),
+        ("wff ch", True),
+        ("wff ( ph -> ph )", True),
+        ("wff ( ph -> ps )", True),
+        ("wff ( ps -> ch )", True),
+        ("wff ps -> ch", False),
+        ("wff ( ps ->", False),
+        ("wff ps ch", False),
+        ("wff -. ps", True),
+        ("wff -.", False),
     ]
     for s, r in tests:
         tokens = tuple(s.split(" "))
         res = parse_wff(wff_rules, wff_vars, tokens)
         assert res == r, tokens
-    input('.')
+    input('no assertions failed...')
 
     scheme = Scheme("wff ph".split(" "), {"ph"})
     print(scheme)

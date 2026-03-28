@@ -5,6 +5,8 @@ $ python -m src.database
 from collections import namedtuple
 import itertools as it
 
+from metamathpy.unification import Scheme
+
 try:
     profile
 except NameError:
@@ -52,6 +54,8 @@ class Rule:
         self.variables = variables
     def finalize(self):
         self.hypotheses = self.floatings + self.essentials
+        self.scheme = Scheme(self.consequent.tokens, self.variables)
+
     def __str__(self):
         s = f"{self.consequent.label} {self.consequent.tag} {' '.join(self.consequent.tokens)} $.\n"
         s += f"disjoint variable sets: {self.disjoint}\n"
