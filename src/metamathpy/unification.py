@@ -100,10 +100,13 @@ class Scheme:
 def parse_wff(wff_rules, variables, tokens):
     # todo:
     # reconstruct proof, not just return tf
+    # ProofStep(conclusion, rule, dependencies=None, substitution=None, disjoint=None)
     # extend from wff to rules that dont introduce work variables
-    if len(tokens) == 2 and tokens[0] == "wff" and tokens[1] in wff_vars: return True
+
+    # or-loop (only one rule needs to justify)
     for rule in wff_rules:
         for substitution in rule.scheme.matches(tokens):
+            # and-loop: all dependencies must be proved (base case: all([]) is True)
             result = all(
                 parse_wff(wff_rules, wff_vars, substitute(h.tokens, substitution))
                 for h in rule.hypotheses)
@@ -129,20 +132,9 @@ if __name__ == "__main__":
 
     # try parsing a wff with schemes for each rule
     wff_vars = {"ph", "ps", "ch"}
-    wff_rules = [db.rules[k] for k in ("wi", "wn")]
-    # tests = [
-    #     ("ph", True),
-    #     ("ps", True),
-    #     ("ch", True),
-    #     ("( ph -> ph )", True),
-    #     ("( ph -> ps )", True),
-    #     ("( ps -> ch )", True),
-    #     ("ps -> ch", False),
-    #     ("( ps ->", False),
-    #     ("ps ch", False),
-    #     ("-. ps", True),
-    #     ("-.", False),
-    # ]
+    # wff_rules = [db.rules[k] for k in ("wph", "wps", "wch", "wi", "wn")]
+    # wff_rules = [db.rules[k] for k in db.rules if k[0] == "w"]
+    wff_rules = list(db.rules.values())
     tests = [
         ("wff ph", True),
         ("wff ps", True),
