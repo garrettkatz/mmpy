@@ -102,16 +102,40 @@ def parse_wff(wff_rules, variables, tokens):
     # reconstruct proof, not just return tf
     # ProofStep(conclusion, rule, dependencies=None, substitution=None, disjoint=None)
     # extend from wff to rules that dont introduce work variables
+    # returns (success, result)
+    #   success: true or false
+    #   result: (tokens, rule, dependencies, substitution) needed to reconstruct proof step
 
     # or-loop (only one rule needs to justify)
     for rule in wff_rules:
         for substitution in rule.scheme.matches(tokens):
+
             # and-loop: all dependencies must be proved (base case: all([]) is True)
-            result = all(
-                parse_wff(wff_rules, wff_vars, substitute(h.tokens, substitution))
-                for h in rule.hypotheses)
-            if result: return True
-    return False 
+            dependencies = {}
+            for hyp in rule.hypotheses:
+
+                # try satisfying
+                success, result = parse_wff(wff_rules, wff_vars, substitute(hyp.tokens, substitution))
+                if not success: break
+                
+                # satisfied, can use result as dependencyas 
+                dependencies[hyp.label] = result
+
+            # if some hypotheses not satisfied, this substitution and rule does not work
+            if len(dependencies) < len(rule.hypotheses): continue
+
+            # otherwise, it worked, return result
+            result = (tokens, rule, dependencies, substitution) # todo: disjoint?
+            return True, result
+
+            # result = all(
+            #     parse_wff(wff_rules, wff_vars, substitute(h.tokens, substitution))
+            #     for h in rule.hypotheses)
+            # if result: return True
+    # return False 
+
+    # no rules worked
+    return False, None
 
 if __name__ == "__main__":
 
@@ -147,11 +171,16 @@ if __name__ == "__main__":
         ("wff ps ch", False),
         ("wff -. ps", True),
         ("wff -.", False),
+        # ("|- ( ph -> ph )", True), # hits recursion depth
     ]
     for s, r in tests:
         tokens = tuple(s.split(" "))
-        res = parse_wff(wff_rules, wff_vars, tokens)
-        assert res == r, tokens
+        success, result = parse_wff(wff_rules, wff_vars, tokens)
+        assert success == r, tokens
+        if success:
+            print(f"token string: {s}")
+            (conclusion, rule, dependencies, substitution) = result
+            print(f"root rule = {rule.consequent.label}")
     input('no assertions failed...')
 
     scheme = Scheme("wff ph".split(" "), {"ph"})
