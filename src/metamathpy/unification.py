@@ -97,42 +97,62 @@ class Scheme:
         # # use helper on remainder
         yield from match_helper(self.vartoks, self.chunks[1:], tokens[len(self.chunks[0]):])
 
-def parse_wff(wff_rules, variables, tokens):
-    # todo:
-    # reconstruct proof, not just return tf
-    # ProofStep(conclusion, rule, dependencies=None, substitution=None, disjoint=None)
-    # extend from wff to rules that dont introduce work variables
+def backsearch(rules, variables, tokens, max_depth=-1, verbose=False):
+    # parameters:
+    #   rules: list of rule objects to use as justifications
+    #   variables: list of tokens that are metavariables
+    #   tokens: token sequence to parse
+    #   max_depth: if >= 0, dont search past this depth
+    #   verbose: if True, print debug messages
     # returns (success, result)
     #   success: true or false
     #   result: (tokens, rule, dependencies, substitution) needed to reconstruct proof step
+    # todo:
+    #   extend from wff to rules that dont introduce work variables
+
+    # depth limit reached
+    if verbose: print(" "*max_depth + f">>> {' '.join(tokens)}")
+    if max_depth == 0: return False, None
 
     # or-loop (only one rule needs to justify)
-    for rule in wff_rules:
-        for substitution in rule.scheme.matches(tokens):
+    for rule in rules:
 
-            # and-loop: all dependencies must be proved (base case: all([]) is True)
-            dependencies = {}
-            for hyp in rule.hypotheses:
+        # a hypothesis-less "rule" (ie, hypothesis of whats being currently proved) has to match without substitutions
+        if len(rule.hypotheses) == 0:
+            if tuple(rule.consequent.tokens) == tokens: # todo: in finalize, change token list to tuple?
+                if verbose: print(" "*max_depth + f">>> {' '.join(tokens)} <={rule.consequent.label}_/(0)")
+                return True, (tokens, rule, {}, {})
 
-                # try satisfying
-                success, result = parse_wff(wff_rules, wff_vars, substitute(hyp.tokens, substitution))
-                if not success: break
-                
-                # satisfied, can use result as dependencyas 
-                dependencies[hyp.label] = result
+        # else try all possible substitutions
+        else:
 
-            # if some hypotheses not satisfied, this substitution and rule does not work
-            if len(dependencies) < len(rule.hypotheses): continue
-
-            # otherwise, it worked, return result
-            result = (tokens, rule, dependencies, substitution) # todo: disjoint?
-            return True, result
-
-            # result = all(
-            #     parse_wff(wff_rules, wff_vars, substitute(h.tokens, substitution))
-            #     for h in rule.hypotheses)
-            # if result: return True
-    # return False 
+            # if verbose: print(" "*max_depth + f">>> {' '.join(tokens)} <={rule.consequent.label}")
+            for substitution in rule.scheme.matches(tokens):
+                psub = {k:' '.join(v) for k,v in substitution.items()}
+                if verbose: print(" "*max_depth + f">>> {' '.join(tokens)} <={rule.consequent.label}{psub}")
+    
+                # and-loop: all dependencies must be proved (base case: all([]) is True)
+                dependencies = {}
+                for hyp in rule.hypotheses:
+    
+                    # try satisfying
+                    success, result = backsearch(rules, variables, substitute(hyp.tokens, substitution), max_depth-1)
+                    if not success: break
+                    if verbose: print(" "*max_depth + f">>> {' '.join(tokens)} <={rule.consequent.label}{psub}_/{hyp.label}")
+                    
+                    # satisfied, can use result as dependency 
+                    dependencies[hyp.label] = result
+    
+                # if some hypotheses not satisfied, this substitution and rule does not work
+                if len(dependencies) < len(rule.hypotheses):
+                    if verbose: print(" "*max_depth + f">>> {' '.join(tokens)} <={rule.consequent.label}{psub}X({len(dependencies)}|{len(rule.hypotheses)})")
+                    continue
+    
+                if verbose: print(" "*max_depth + f">>> {' '.join(tokens)} <={rule.consequent.label}{psub}_/({len(dependencies)})")
+    
+                # otherwise, it worked, return result
+                result = (tokens, rule, dependencies, substitution) # todo: disjoint?
+                return True, result
 
     # no rules worked
     return False, None
@@ -143,6 +163,13 @@ if __name__ == "__main__":
     import metamathpy.setmm as ms
     import metamathpy.database as md
     import metamathpy.proof as mp
+
+    # helper to reconstruct parse result
+    # todo: move to another file to avoid circular unification<->proof imports?
+    def reconstruct_proof(parse_result):
+        (conclusion, rule, dependencies, substitution) = parse_result
+        dependencies = {k: reconstruct_proof(v) for (k,v) in dependencies.items()}
+        return mp.ProofStep(conclusion, rule, dependencies, substitution)
 
     # # for t in constant_sum(5, 3): print(t)
     # s, m = 7, (2,1,)
@@ -159,6 +186,10 @@ if __name__ == "__main__":
     # wff_rules = [db.rules[k] for k in ("wph", "wps", "wch", "wi", "wn")]
     # wff_rules = [db.rules[k] for k in db.rules if k[0] == "w"]
     wff_rules = list(db.rules.values())
+
+    # filter out rules with essentials
+    wff_rules = [rule for rule in wff_rules if len(rule.essentials)==0]
+
     tests = [
         ("wff ph", True),
         ("wff ps", True),
@@ -171,16 +202,21 @@ if __name__ == "__main__":
         ("wff ps ch", False),
         ("wff -. ps", True),
         ("wff -.", False),
-        # ("|- ( ph -> ph )", True), # hits recursion depth
+        ("|- ( ph -> ph )", True), # hits recursion depth
     ]
     for s, r in tests:
         tokens = tuple(s.split(" "))
-        success, result = parse_wff(wff_rules, wff_vars, tokens)
+        success, result = backsearch(wff_rules, wff_vars, tokens)#, max_depth=3) # may need max depth if rules with essentials included
         assert success == r, tokens
         if success:
-            print(f"token string: {s}")
-            (conclusion, rule, dependencies, substitution) = result
-            print(f"root rule = {rule.consequent.label}")
+            print(f"^^ token string: {s}")
+            # (conclusion, rule, dependencies, substitution) = result
+            # print(f"root rule = {rule.consequent.label}")
+            rootstep = reconstruct_proof(result)
+            print("Final proof:")
+            print(rootstep.tree_string())
+        else:
+            print(f"-- false token string {s}")
     input('no assertions failed...')
 
     scheme = Scheme("wff ph".split(" "), {"ph"})

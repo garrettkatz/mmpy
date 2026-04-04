@@ -53,6 +53,7 @@ class Rule:
         self.disjoint = disjoint
         self.variables = variables
     def finalize(self):
+        # todo: also tuplify consequent tokens
         self.hypotheses = self.floatings + self.essentials
         self.scheme = Scheme(self.consequent.tokens, self.variables)
 
