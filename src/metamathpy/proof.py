@@ -3,7 +3,7 @@ Run from top-level directory with
 $ python -m src.metamathpy.proof
 """
 import itertools as it
-from metamathpy.unification import substitute, unify
+from metamathpy.substitution import substitute
 
 try:
     profile
@@ -219,7 +219,7 @@ def verify_compressed_proof(database, claim):
     # extract labels and mixed-radix pointer encodings
     split = claim.consequent.proof.index(")")
     step_labels = claim.consequent.proof[1:split]
-    proof_string = ''.join(claim.consequent.proof[split+1:])
+    proof_string = ''.join(claim.consequent.proof[split+1:]) # join in case of newlines
 
     # convert to integer pointers and save tagged steps
     A, U, Z = ord('A'), ord('U'), ord('Z')

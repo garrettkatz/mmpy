@@ -5,7 +5,7 @@ $ python -m src.database
 from collections import namedtuple
 import itertools as it
 
-from metamathpy.unification import Scheme
+from metamathpy.substitution import Scheme
 
 try:
     profile
