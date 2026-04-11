@@ -1,6 +1,97 @@
 import metamathpy.proof as mp
 from metamathpy.substitution import substitute
 
+class AndNode:
+    """
+    Represents one viable proof strategy for a parent OrNodes's goal
+    Parameters as in ProofStep, except dependencies are OrNodes instead of ProofSteps
+    Proof requires all dependencies to be proved (hence "and" node)
+    """
+    def __init__(self, rule, substitution=None, dependencies=None):
+        self.rule = rule
+        self.substitution = substitution
+        self.dependencies = dependencies
+
+class OrNode:
+    """
+    Represents a goal claim and all its viable proof strategies (list of AndNodes)
+    Proof requires one strategy to succeed (hence "or" node)
+    """
+    def __init__(self, tokens, variables, disjoint=None):
+        """
+        tokens: token sequence (tuple) of goal claim
+        variables: list of tokens that are metavariables in claim
+        disjoint: disjoint variable requirements of claim, if any
+        """
+        self.tokens = tokens
+        self.variables = variables
+        self.disjoint = disjoint
+        self.and_nodes = []
+
+    def expand(self, rules, max_depth):
+        """
+        recursively expands and-or tree for self
+        inputs:
+            rules: list of rule objects to use as justifications
+            max_depth: recursively expand at most this many or-levels            
+        """
+
+        # base case
+        if max_depth == 0: return
+
+        # or-loop (only one rule needs to justify)
+        for rule in rules:
+    
+            # a hypothesis-less "rule" (ie, hypothesis of whats being currently proved) has to match without substitutions
+            if len(rule.hypotheses) == 0:
+                if tuple(rule.consequent.tokens) == self.tokens: # todo: in finalize, change token list to tuple?
+                    self.and_nodes.append(AndNode(rule))
+    
+            # else try all possible substitutions
+            else:
+    
+                for substitution in rule.scheme.matches(self.tokens):
+        
+                    # skip if disjoint requirements not satisfied or too many inherited
+                    inherited, message = mp.disjoint_variable_check(rule, substitution)
+                    if inherited is None: continue
+                    if self.disjoint is not None and inherited > self.disjoint: continue
+    
+                    # and-loop: all dependencies must be proved (base case: all([]) is True)
+                    dependencies = {}
+                    for hyp in rule.hypotheses:
+        
+                        # recursively expand or-node dependency
+                        or_node = OrNode(substitute(hyp.tokens, substitution), self.variables, self.disjoint)
+                        or_node.expand(rules, max_depth-1)
+                        if max_depth-1 > 0 and len(or_node.and_nodes) == 0: break # no way to prove this dependency
+                        
+                        # proof of this dependency not yet ruled out
+                        dependencies[hyp.label] = or_node
+        
+                    # if some hypotheses have no viable proof strategies, this substitution and rule does not work
+                    if len(dependencies) < len(rule.hypotheses): continue
+
+                    # otherwise, construct and append and-node
+                    and_node = AndNode(rule, substitution, dependencies)
+                    self.and_nodes.append(and_node)
+
+    def tree_string(self, prefix=""):
+        s = f"{prefix}{' '.join(self.tokens)}"
+        if len(self.and_nodes) > 0:
+            s += " -| or["
+            for and_node in self.and_nodes:
+                psub = {}
+                if and_node.substitution is not None:
+                    psub = {k: ' '.join(v) for k,v in and_node.substitution.items()}
+                s += f"\n{prefix+' '}{and_node.rule.consequent.label}/{psub}"
+                if and_node.dependencies is not None:
+                    s += " -| and["
+                    for or_node in and_node.dependencies.values():
+                        s += "\n" + or_node.tree_string(prefix+'  ')
+        return s
+
+
 def backsearch(rules, variables, tokens, disjoint=None, max_depth=-1, verbose=False):
     """
     parameters:
@@ -73,6 +164,20 @@ if __name__ == "__main__":
     import metamathpy.setmm as ms
     import metamathpy.database as md
 
+    # # test disjoint variable code branches
+    # rules = [md.Rule(
+    #     Statement('test', '$p', "|- ( ph -> ps )".split(" "), ()),
+    #     essentials=[],
+    #     floatings=[
+    #         Statement('wph', '$a', "wff ph".split(" "), ()),
+    #         Statement('wps', '$a', "wff ps".split(" "), ())
+    #     ],
+    #     disjoint = {("ph", "ps")},
+    #     variables = {"ph", "ps"})
+    # )]
+    # backsearch(rules, variables, tokens, disjoint=None, max_depth=-1, verbose=False)
+    
+
     db = ms.load_pl()
     # db = ms.load_all()
 
@@ -111,6 +216,13 @@ if __name__ == "__main__":
         else:
             print(f"-- false token string {s}")
     input('no assertions failed...')
+
+    for s, _ in tests:
+        tokens = tuple(s.split(" "))
+        or_node = OrNode(tokens, wff_vars)
+        or_node.expand(wff_rules, max_depth=2)
+        print(or_node.tree_string())
+        input('or-and tree^^')
 
     # get rules that do not introduce work variables
     workless_rules = []
