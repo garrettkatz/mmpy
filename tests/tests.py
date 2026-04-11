@@ -4,9 +4,10 @@ $ python -m tests.tests
 """
 import os
 import unittest as ut
-from src.proof import substitute, verify_all
+from src.metamathpy.substitution import substitute
+from src.metamathpy.proof import verify_all
 # from src.parse import parse as parse, Database
-from src.database import parse as read
+from src.metamathpy.database import parse as read
 
 class TestSubstitute(ut.TestCase):
 
@@ -67,15 +68,9 @@ class TestVerify(ut.TestCase):
     def test_good_parse(self):
         fpath = os.path.join('tests', 'p2.mm')
         db = read(fpath)
-        verify_all(db)
-
-    def test_bad_parse(self):
-        fpath = os.path.join('tests', 'badparse.mm')
-        db = read(fpath)
-        verify_all(db)
+        verify_all(db)           
 
 class TestDatabase(ut.TestCase):
-    ## Bit confused on the Database version of parse, it always gives the same value for the rule parameter as statement however the Parse version gives seemingly a more accurate value
     def test_good_parse(self):
         fpath = os.path.join('tests', 'p2.mm')
         db = read(fpath)
@@ -83,8 +78,7 @@ class TestDatabase(ut.TestCase):
 
     def test_bad_parse(self):
         fpath = os.path.join('tests', 'badparse.mm')
-        db = read(fpath)
-        self.assertEqual(len(db.rules), 0)
+        with self.assertRaisesRegex(AssertionError, "Last comment never terminated"): read(fpath)
 
     def test_medium_parse(self):
         fpath = os.path.join('tests', 'test.mm')

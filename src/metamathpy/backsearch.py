@@ -1,18 +1,19 @@
 import metamathpy.proof as mp
 from metamathpy.substitution import substitute
 
-def backsearch(rules, variables, tokens, max_depth=-1, verbose=False):
+def backsearch(rules, variables, tokens, disjoint=None, max_depth=-1, verbose=False):
     """
     parameters:
       rules: list of rule objects to use as justifications
       variables: list of tokens that are metavariables
-      tokens: token sequence to prove
+      tokens: token sequence claim to prove
+      disjoint: disjoint variable requirements of claim, if any
       max_depth: if >= 0, dont search past this depth
       verbose: if True, print debug messages
     returns (success, rootstep)
       success: true or false
       rootstep: root of partial proof step tree (wraps tokens, rule, dependencies, substitution), or None if not successful
-    TODO: disjoint variable requirements
+    todo: test disjoint variable code branches
     """
 
     # depth limit reached
@@ -32,15 +33,21 @@ def backsearch(rules, variables, tokens, max_depth=-1, verbose=False):
         else:
 
             for substitution in rule.scheme.matches(tokens):
+
                 psub = {k:' '.join(v) for k,v in substitution.items()}
                 if verbose: print(" "*max_depth + f">>> {' '.join(tokens)} <={rule.consequent.label}{psub}")
-    
+
+                # skip if disjoint requirements not satisfied or too many inherited
+                inherited, message = mp.disjoint_variable_check(rule, substitution)
+                if inherited is None: continue
+                if disjoint is not None and inherited > disjoint: continue
+
                 # and-loop: all dependencies must be proved (base case: all([]) is True)
                 dependencies = {}
                 for hyp in rule.hypotheses:
     
                     # try satisfying
-                    success, step = backsearch(rules, variables, substitute(hyp.tokens, substitution), max_depth-1)
+                    success, step = backsearch(rules, variables, substitute(hyp.tokens, substitution), disjoint, max_depth-1, verbose)
                     if not success: break
                     if verbose: print(" "*max_depth + f">>> {' '.join(tokens)} <={rule.consequent.label}{psub}_/{hyp.label}")
                     
@@ -55,7 +62,7 @@ def backsearch(rules, variables, tokens, max_depth=-1, verbose=False):
                 if verbose: print(" "*max_depth + f">>> {' '.join(tokens)} <={rule.consequent.label}{psub}_/({len(dependencies)})")
     
                 # otherwise, it worked, construct and return root step
-                return True, mp.ProofStep(tokens, rule, dependencies, substitution) # todo: disjoint
+                return True, mp.ProofStep(tokens, rule, dependencies, substitution, inherited)
 
     # no rules worked
     return False, None

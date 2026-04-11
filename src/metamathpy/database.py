@@ -220,6 +220,8 @@ def parse(fpath, max_rules=-1, last_rule=""):
                 if token[0] == "$" and token[1] not in "()": current_tag = token[1]
                 if current_tag in ("$.", "$}"): current_tag = None
 
+        assert not in_comment, "Last comment never terminated"
+
     return db
 
 if __name__ == "__main__":

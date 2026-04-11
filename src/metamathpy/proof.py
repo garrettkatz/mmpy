@@ -11,15 +11,15 @@ except NameError:
     profile = lambda x: x
 
 
-"""
-Proof step: represents one step of a proof
-conclusion: the symbol string that is concluded by applying an inference rule
-rule: the rule object that was applied
-dependencies[h]: another ProofStep object, whose conclusion satisfies the rule hypothesis with label h
-substitution: the substitution that transforms the rule's consequent and hypotheses into the conclusion and dependencies
-disjoint: the set of disjoint variable requirements inherited from dependencies
-"""
 class ProofStep:
+    """
+    Proof step: represents one step of a proof
+    conclusion: the symbol string that is concluded by applying an inference rule
+    rule: the rule object that was applied
+    dependencies[h]: another ProofStep object, whose conclusion satisfies the rule hypothesis with label h
+    substitution: the substitution that transforms the rule's consequent and hypotheses into the conclusion and dependencies
+    disjoint: the set of disjoint variable requirements inherited from dependencies
+    """
     def __init__(self, conclusion, rule, dependencies=None, substitution=None, disjoint=None):
 
         # defaults
@@ -30,8 +30,8 @@ class ProofStep:
         self.conclusion = conclusion # conclusion of the step
         self.rule = rule # justification for the step
         self.dependencies = dependencies # previous steps it relies on
-        self.substitution = substitution # substitution that matches them
-        self.disjoint = disjoint # disjoint requirements inherited from them
+        self.substitution = substitution # substitution that matches the dependencies
+        self.disjoint = disjoint # disjoint requirements inherited from the dependencies
 
         # cache normal proofs after first construction
         self._normal_proof = None
@@ -73,14 +73,39 @@ class ProofStep:
         # return proof
         return self._normal_proof
 
-"""
-Apply a rule to a sequence of dependencies, each a previous proof step 
-The conclusions of each dependency should match the hypotheses of the rule
-returns the resulting proof step and a status message
-If the rule does not apply, proof step is None, otherwise status message is ""
-"""
+def disjoint_variable_check(rule, substitution):
+    """
+    Check if disjoint variable requirements are satisfied by given rule and substitution
+    returns inherited, message
+        inherited: inherited requirements if satisfied, otherwise None
+        mesage: "" if satisfied, otherwise error message
+    """
+
+    # get all variables in substituted expressions and pairs of variables being substituted
+    subvars = {v: rule.variables.intersection(tokens) for (v, tokens) in substitution.items()}
+    variable_pairs = set(it.combinations(sorted(substitution.keys()), 2))
+
+    inherited = set()
+    for (u, v) in variable_pairs & rule.disjoint:
+
+        # check that disjoint variable substitutions remain disjoint
+        if len(subvars[u] & subvars[v]) != 0:
+            return None, f"{rule.consequent.label}: $d {u} {v} violated by {substitution}"
+
+        # inherit disjoint requirements on the substituted variables
+        for (x, y) in it.product(subvars[u], subvars[v]):
+            inherited.add((min(x, y), max(x, y)))
+
+    return inherited, ""
+
 @profile
 def perform(rule, dependencies):
+    """
+    Apply a rule to a sequence of dependencies, each a previous proof step 
+    The conclusions of each dependency should match the hypotheses of the rule
+    returns the resulting proof step and a status message
+    If the rule does not apply, proof step is None, otherwise status message is ""
+    """
 
     # make sure all hypotheses accounted for
     if len(rule.hypotheses) != len(dependencies):
@@ -109,21 +134,9 @@ def perform(rule, dependencies):
                 substr = {k: " ".join(v) for k,v in substitution.items()}
                 return None, f"{hypothesis.label}: {' '.join(dependency.conclusion)} != subst({' '.join(hypothesis.tokens)}, {substr})"
 
-    # get all variables in substituted expressions and pairs of variables being substituted
-    subvars = {v: rule.variables.intersection(tokens) for (v, tokens) in substitution.items()}
-    variable_pairs = set(it.combinations(sorted(substitution.keys()), 2))
-
-    # disjoint variable checks
-    inherited = set()
-    for (u, v) in variable_pairs & rule.disjoint:
-
-        # check that disjoint variable substitutions remain disjoint
-        if len(subvars[u] & subvars[v]) != 0:
-            return None, f"{rule.consequent.label}: $d {u} {v} violated by {substitution}"
-
-        # inherit disjoint requirements on the substituted variables
-        for (x, y) in it.product(subvars[u], subvars[v]):
-            inherited.add((min(x, y), max(x, y)))
+    # check disjoint variable requirements
+    inherited, message = disjoint_variable_check(rule, substitution)
+    if inherited is None: return None, message
 
     # infer conclusion from the rule
     conclusion = substitute(rule.consequent.tokens, substitution)
@@ -135,15 +148,15 @@ def perform(rule, dependencies):
     result = ProofStep(conclusion, rule, dependencies, substitution, inherited)
     return result, ""
 
-"""
-Conduct one step of a proof
-Applies given rule to top of stack; pops top of stack in place
-asserts disjoint variable requirements if provided
-Returns the resulting proof step object and status message
-If step is unsound, proof steps is None, otherwise message is ""
-"""
 @profile
 def conduct(rule, stack, disjoint=None):
+    """
+    Conduct one step of a proof
+    Applies given rule to top of stack; pops top of stack in place
+    asserts disjoint variable requirements if provided
+    Returns the resulting proof step object and status message
+    If step is unsound, proof steps is None, otherwise message is ""
+    """
 
     # short-circuit hypothesis-less rules
     if len(rule.hypotheses) == 0:
@@ -167,13 +180,13 @@ def conduct(rule, stack, disjoint=None):
     # return resulting proof step and normal status
     return step, ""
 
-"""
-claim: a rule object whose proof will be verified
-returns root of proof tree and dictionary of proof step nodes
-raises error if proof invalid
-"""
 @profile
 def verify_normal_proof(database, claim):
+    """
+    claim: a rule object whose proof will be verified
+    returns root of proof tree and dictionary of proof step nodes
+    raises error if proof invalid
+    """
 
     # initialize stack of proof steps
     stack = []
@@ -208,13 +221,13 @@ def verify_normal_proof(database, claim):
     # return root of proof graph and dictionary of nodes
     return stack[0], proof_steps
 
-"""
-claim: a rule object whose proof will be verified
-returns root of proof tree and dictionary of proof step nodes
-raises error if proof invalid
-"""
 @profile
 def verify_compressed_proof(database, claim):
+    """
+    claim: a rule object whose proof will be verified
+    returns root of proof tree and dictionary of proof step nodes
+    raises error if proof invalid
+    """
 
     # extract labels and mixed-radix pointer encodings
     split = claim.consequent.proof.index(")")
@@ -346,13 +359,13 @@ if __name__ == "__main__":
         root, _ = verify_proof(db, claim)
 
         print(c, claim)
-        print(claim.consequent.proof)
+        # print(claim.consequent.proof)
 
         # reconstruct normal proof and verify again
         stmt = claim.consequent
         proof = root.normal_proof()
         claim.consequent = Statement(stmt.label, stmt.tag, stmt.tokens, proof)
-        print(claim.consequent.proof[:20])
+        # print(claim.consequent.proof[:20])
         verify_normal_proof(db, claim)
 
     # # TODO: complete following demonstration of solitaire functionality
