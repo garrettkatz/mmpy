@@ -27,6 +27,7 @@ class OrNode:
         self.variables = variables
         self.disjoint = disjoint
         self.and_nodes = []
+        self.node_count = 1
 
     def expand(self, rules, max_depth):
         """
@@ -46,6 +47,7 @@ class OrNode:
             if len(rule.hypotheses) == 0:
                 if tuple(rule.consequent.tokens) == self.tokens: # todo: in finalize, change token list to tuple?
                     self.and_nodes.append(AndNode(rule))
+                    self.node_count += 1
     
             # else try all possible substitutions
             else:
@@ -75,11 +77,12 @@ class OrNode:
                     # otherwise, construct and append and-node
                     and_node = AndNode(rule, substitution, dependencies)
                     self.and_nodes.append(and_node)
+                    self.node_count += 1 + sum(or_node.node_count for or_node in dependencies.values())
 
     def tree_string(self, prefix=""):
         s = f"{prefix}{' '.join(self.tokens)}"
         if len(self.and_nodes) > 0:
-            s += " -| or["
+            s += f" -| or<{self.node_count}>["
             for and_node in self.and_nodes:
                 psub = {}
                 if and_node.substitution is not None:
@@ -90,6 +93,22 @@ class OrNode:
                     for or_node in and_node.dependencies.values():
                         s += "\n" + or_node.tree_string(prefix+'  ')
         return s
+
+    def first_viable_proof(self):
+        # recursively find first viable proof, if any, in self's current expansion
+        for and_node in self.and_nodes:
+            if and_node.dependencies is None:
+                return True, mp.ProofStep(self.tokens, and_node.rule)
+            else:
+                dependencies = {}
+                for label, or_node in and_node.dependencies.items():
+                    success, step = or_node.first_viable_proof()
+                    if not success: break
+                    dependencies[label] = step
+                if len(dependencies) < len(and_node.dependencies): continue
+                return True, mp.ProofStep(self.tokens, and_node.rule, dependencies, and_node.substitution, self.disjoint)
+
+        return False, None
 
 
 def backsearch(rules, variables, tokens, disjoint=None, max_depth=-1, verbose=False):
@@ -219,10 +238,18 @@ if __name__ == "__main__":
 
     for s, _ in tests:
         tokens = tuple(s.split(" "))
+        print(f"token string: {s}")
         or_node = OrNode(tokens, wff_vars)
-        or_node.expand(wff_rules, max_depth=2)
+        or_node.expand(wff_rules, max_depth=4)
         print(or_node.tree_string())
-        input('or-and tree^^')
+        success, rootstep = or_node.first_viable_proof()
+        print('or-and tree^^')
+        if success:
+            print("Final proof:")
+            print(rootstep.tree_string())
+        else:
+            print("Failure...")
+        input('..')
 
     # get rules that do not introduce work variables
     workless_rules = []
