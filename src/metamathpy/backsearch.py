@@ -1,5 +1,5 @@
 import metamathpy.proof as mp
-from metamathpy.substitution import substitute, Scheme
+from metamathpy.substitution import substitute, Scheme, multibinder
 
 class AndNode:
     """
@@ -110,32 +110,6 @@ class OrNode:
 
         return False, None
 
-def work_variable_bindings(schemes, pile):
-    # helper generator for backsearch with work variables
-    # yield every substitution s such that all(scheme.sub(s) in pile.keys for scheme in schemes)
-    # also yields the corresponding steps in the pile
-
-    # try matching first scheme against each token sequence in the pile
-    for tokens, step in pile.items():
-        for bindings in schemes[0].matches(tokens):
-
-            # base case: this is the last scheme, so done
-            if len(schemes) == 1:
-                yield bindings, (step,)
-                continue
-
-            # recursive case: check if these bindings also work for remaining schemes
-            sub_schemes = []
-            for scheme in schemes[1:]:
-                sub_schemes.append(Scheme(
-                    scheme.substitute(bindings),
-                    set(scheme.variables) - set(bindings.keys())
-                ))
-
-            for sub_bindings, steps in work_variable_bindings(sub_schemes, pile):
-                yield (bindings | sub_bindings), ((step,) + steps)
-
-
 def backsearch(goal, rules, disjoint=None, pile=None, max_depth=-1, verbose=False):
     """
     parameters:
@@ -174,8 +148,7 @@ def backsearch(goal, rules, disjoint=None, pile=None, max_depth=-1, verbose=Fals
         else:
 
             # determine whether this rule introduces work variables
-            mandatory = set([f.tokens[1] for f in rule.floatings])
-            work_variables = tuple(mandatory - set(rule.consequent.tokens))
+            work_variables = tuple(rule.mandatory - set(rule.consequent.tokens))
             needs_work = (len(work_variables) > 0)
 
             # if so, standardize apart
@@ -209,7 +182,7 @@ def backsearch(goal, rules, disjoint=None, pile=None, max_depth=-1, verbose=Fals
                         for scheme in schemes: print(" "*max_depth + str(scheme))
 
                     # use first (if any) work variable binding satisfied by pile
-                    for bindings, steps in work_variable_bindings(schemes, pile):
+                    for bindings, steps in multibinder(schemes, pile):
                         dependencies = {hyp.label: step for hyp, step in zip(rule.hypotheses, steps)}
 
                         if verbose: print(" "*max_depth + f">>> {' '.join(goal)} <={rule.consequent.label}{psub}_/({len(dependencies)})[wv:{bindings}]")
@@ -332,14 +305,14 @@ if __name__ == "__main__":
     ]
     pile = {step.conclusion: step for step in steps}
 
-    # check work_variable_bindings
+    # check work variable multibindings
     schemes = [
         Scheme("wff wv".split(), ("wv",)),
         Scheme("wff ( ps -> ( ch -> ph ) )".split(), ("wv",)),
         Scheme("|- wv".split(), ("wv",)),
         Scheme("|- ( wv -> ( ps -> ( ch -> ph ) ) )".split(), ("wv",)),
     ]
-    for b, (bindings, steps) in enumerate(work_variable_bindings(schemes, pile)):
+    for b, (bindings, steps) in enumerate(multibinder(schemes, pile)):
         print(b, bindings, steps)
     input("all wv bindings^^")
 
@@ -367,29 +340,3 @@ if __name__ == "__main__":
     #         print("Failure...")
     #     input('..')
 
-    # ## checking how far you can get without work variables (not very):
-    # # get rules that do not introduce work variables
-    # workless_rules = []
-    # for rule in db.rules.values():
-    #     # extract mandatory variables in essential hypotheses and consequent
-    #     con_vars = rule.variables & set(rule.consequent.tokens)
-    #     ess_vars = rule.variables & set(sum((h.tokens for h in rule.essentials), []))
-    #     # no work variables if all mandatory variables are in the consequent
-    #     if ess_vars <= con_vars: workless_rules.append(rule)
-    # # for rule in [r for r in workless_rules if r.consequent.tag in ("$a","$p")][:20]:
-    # #     print(rule)
-    # # input("first workless rules ^^...")
-
-    # # get rules whose proofs only rely on workless rules
-    # workless_provable = []
-    # for rule in db.rules.values():
-    #     if rule.consequent.tag != "$p": continue
-    #     split = rule.consequent.proof.index(")")
-    #     step_labels = rule.consequent.proof[1:split]
-    #     if set(step_labels) <= set(workless_rules): workless_provable.append(rule)
-
-    # for rule in workless_provable[:5]:
-    #     print(rule)
-    #     rootstep, _ = mp.verify_compressed_proof(db, rule)
-    #     print(rootstep.tree_string())
-    # input(f"first workless provables ({len(workless_provable)} total, {len(workless_rules)} workless rules) ^^...")

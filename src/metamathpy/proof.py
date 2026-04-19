@@ -98,7 +98,7 @@ def disjoint_variable_check(rule, substitution):
 
     return inherited, ""
 
-@profile
+# @profile
 def perform(rule, dependencies):
     """
     Apply a rule to a sequence of dependencies, each a previous proof step 
@@ -148,7 +148,7 @@ def perform(rule, dependencies):
     result = ProofStep(conclusion, rule, dependencies, substitution, inherited)
     return result, ""
 
-@profile
+# @profile
 def conduct(rule, stack, disjoint=None):
     """
     Conduct one step of a proof
@@ -180,7 +180,7 @@ def conduct(rule, stack, disjoint=None):
     # return resulting proof step and normal status
     return step, ""
 
-@profile
+# @profile
 def verify_normal_proof(database, claim):
     """
     claim: a rule object whose proof will be verified
@@ -221,7 +221,7 @@ def verify_normal_proof(database, claim):
     # return root of proof graph and dictionary of nodes
     return stack[0], proof_steps
 
-@profile
+# @profile
 def verify_compressed_proof(database, claim):
     """
     claim: a rule object whose proof will be verified
@@ -298,7 +298,7 @@ def verify_proof(database, claim):
     else:
         return verify_normal_proof(database, claim)
 
-@profile
+# @profile
 def verify_all(database, start=0, stop=-1):
     # verify all claims in the database
     for c, claim in enumerate(database.rules.values()):

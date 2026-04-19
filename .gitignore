@@ -1,4 +1,6 @@
 *~
+*pkl
+*lprof
 __pycache__
 .mmpy/
 dist/

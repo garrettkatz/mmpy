@@ -1,3 +1,8 @@
+try:
+    profile
+except NameError:
+    profile = lambda x: x
+
 # @profile
 def substitute(symbols, substitution):
     """
@@ -13,16 +18,14 @@ def substitute(symbols, substitution):
     return result
 # from substitute import substitute # cython version
 
-def match_helper(vartoks, chunks, tokens, substitution=None):
+@profile
+def match_helper(vartoks, chunks, tokens, substitution):
     """
     recursive helper for Scheme.matches
     matches the tail of a token string against the tails of a scheme.vartoks[i:] and .chunks[i+1:]
     schemes have one more chunk than vartok and the leading chunk should be omitted in the top-level call
-    substition starts empty at the top-level call and is populated during the recursion
+    substition should start empty at the top-level call and is populated during the recursion
     """
-
-    # initialize substitution in top-level call
-    if substitution is None: substitution = {}
 
     # base case: no chunks left in the tail
     if len(chunks) == 0:
@@ -31,10 +34,15 @@ def match_helper(vartoks, chunks, tokens, substitution=None):
 
     # otherwise, iterate over each possible position for next chunk
     else:
+
         n = len(chunks[0])
         v = vartoks[0]
+
+        # need to reserve at least this many tokens for tail after vartoks[0]
+        reserved = sum(map(len, chunks)) + len(vartoks)-1
+
         # scan remaining positions
-        for t in range(1, len(tokens)-n+1):
+        for t in range(1, len(tokens)-reserved+1):
             # check for match and consistent substitution
             if chunks[0] == tokens[t:t+n] and substitution.get(v, tokens[:t]) == tokens[:t]:
                 next_sub = substitution | {v: tokens[:t]}
@@ -74,6 +82,7 @@ class Scheme:
             result = result + insertion + chunk
         return result           
 
+    @profile
     def matches(self, tokens):
         """
         Generator that yields all substitutions which match this scheme with the given token sequence
@@ -87,7 +96,48 @@ class Scheme:
         if self.chunks[0] != tokens[:len(self.chunks[0])]: return
 
         # otherwise initiate recursive helper on remainder
-        yield from match_helper(self.vartoks, self.chunks[1:], tokens[len(self.chunks[0]):])
+        yield from match_helper(self.vartoks, self.chunks[1:], tokens[len(self.chunks[0]):], {})
+
+def standardize(schemes, base="v", start=0):
+    """
+    Renames scheme variables to {base}{start}, {base}{start+1}, ...
+    todo: better way of ensuring no name collisions
+    """
+    # collect all variables
+    variables = set(sum([s.variables for s in schemes], ()))
+    standardizer = {v: (f"{base}{start+d}",) for (d, v) in enumerate(variables)}
+    standardized = []
+    for s in schemes:
+        tokens = s.substitute(standardizer)
+        variables = [standardizer[v][0] for v in s.variables]
+        standardized.append(Scheme(tokens, variables))
+    return standardized
+
+@profile
+def multibinder(schemes, pile):
+    # yield every substitution s such that all(scheme.sub(s) in pile.keys for scheme in schemes)
+    # also yields the corresponding steps in the pile
+
+    # try matching first scheme against each token sequence in the pile
+    for tokens, step in pile.items():
+        for bindings in schemes[0].matches(tokens):
+
+            # base case: this is the last scheme, so done
+            if len(schemes) == 1:
+                yield bindings, (step,)
+                continue
+
+            # recursive case: check if these bindings also work for remaining schemes
+            sub_schemes = []
+            for scheme in schemes[1:]:
+                sub_schemes.append(Scheme(
+                    scheme.substitute(bindings),
+                    set(scheme.variables) - set(bindings.keys())
+                ))
+
+            for sub_bindings, steps in multibinder(sub_schemes, pile):
+                yield (bindings | sub_bindings), ((step,) + steps)
+
 
 if __name__ == "__main__":
 
@@ -98,33 +148,46 @@ if __name__ == "__main__":
     db = ms.load_pl()
     # db = ms.load_all()
 
-    scheme = Scheme("wff ph".split(" "), {"ph"})
+    scheme = Scheme("wff ph".split(), {"ph"})
     print(scheme)
     print("sub'd by ph->ps:", " ".join(scheme.substitute({"ph": ("ps",)})))
     string = "wff ch"
     print(f"matches to {string}:")
-    for subst in scheme.matches(string.split(" ")):
+    for subst in scheme.matches(string.split()):
         subd = scheme.substitute(subst)
-        assert subd == tuple(string.split(" "))
+        assert subd == tuple(string.split())
         print({v: ' '.join(s) for (v,s) in subst.items()}, " ".join(subd))
     input('.')
 
-    scheme = Scheme("wff ( ph -> ph )".split(" "), {"ph"})
+    scheme = Scheme("wff ( ph -> ph )".split(), {"ph"})
     print(scheme)
     print(" ".join(scheme.substitute({"ph": ("ps",)})))
     string = "wff ( ch -> ch )"
     print(f"matches to {string}:")
-    for subst in scheme.matches(string.split(" ")):
+    for subst in scheme.matches(string.split()):
         print({v: ' '.join(s) for (v,s) in subst.items()}, " ".join(scheme.substitute(subst)))
     input('.')
 
     # this more complex one works, but does not filter non-wff substitutions since you dont recursively prove yet (thats done in backsearch.py)
-    scheme = Scheme("wff ( ph -> ps )".split(" "), {"ph", "ps"})
+    scheme = Scheme("wff ( ph -> ps )".split(), {"ph", "ps"})
     print(scheme)
     print(" ".join(scheme.substitute({"ph": ("ps",)})))
     string = "wff ( ch -> ( ph -> ch ) )"
     print(f"matches to {string}:")
-    for subst in scheme.matches(string.split(" ")):
+    for subst in scheme.matches(string.split()):
         print({v: ' '.join(s) for (v,s) in subst.items()}, " ".join(scheme.substitute(subst)))
+
+    # test multibinder
+    schemes = [Scheme("|- ph".split(), ('ph',)), Scheme("|- ( ph -> ps )".split(), ('ps', 'ph'))]
+    pile = {
+        tuple("|- ps".split()): mp.ProofStep(tuple("|- ps".split()), db.rules["mp2.2"]),
+        tuple("|- ( ps -> ch )".split()): mp.ProofStep(tuple("|- ( ps -> ch )".split()), db.rules["ax-mp"]),
+    }
+    schemes = standardize(schemes)
+    print("multibinder schemes:", schemes)
+    print("multibinder vv")
+    for binding, steps in multibinder(schemes, pile):
+        print(binding, steps)
+    print("multibinder ^^ [should be one match]")
 
 

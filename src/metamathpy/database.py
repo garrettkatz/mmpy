@@ -55,6 +55,7 @@ class Rule:
     def finalize(self):
         # todo: also tuplify consequent tokens
         self.hypotheses = self.floatings + self.essentials
+        self.mandatory = set([f.tokens[1] for f in self.floatings])
         self.scheme = Scheme(self.consequent.tokens, self.variables)
 
     def __str__(self):
@@ -106,7 +107,7 @@ class Database:
         # print(constants)
         # with open(fname, "w") as f: f.write(s)
 
-@profile
+# @profile
 def parse(fpath, max_rules=-1, last_rule=""):
 
     db = Database()
