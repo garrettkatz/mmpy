@@ -7,8 +7,9 @@ only iter over wff dependencies for essentialess rules or work variables
 import itertools as it
 import metamathpy.database as md
 import metamathpy.proof as mp
+import metamathpy.piletrie as mt
 import metamathpy.backsearch as mb
-from metamathpy.substitution import Scheme, substitute, standardize, multibinder
+from metamathpy.substitution import Scheme, substitute, standardize, multibinder, pilebinder
 
 try:
     profile
@@ -26,7 +27,7 @@ def init_search(db, goal_label):
 
         # special cases based on mm conventions
         if label in ("idi", "a1ii"): continue # special rules only useful in mm proof assistants
-        if label in ("4syl",): continue # new usage is discouraged
+        if label in ("4syl","idALT"): continue # new usage is discouraged
 
         if rule.consequent.tag not in ("$f", "$p", "$a"): continue
         typecode = rule.consequent.tokens[0]
@@ -71,7 +72,7 @@ def closure_step(rules, steps):
 
             # schemes for hypotheses
             schemes = [Scheme(h.tokens, rule.mandatory & set(h.tokens)) for h in rule.hypotheses]
-            schemes = standardize(schemes) # needed for multibinder to work correctly
+            schemes, _ = standardize(schemes) # needed for multibinder to work correctly
 
             # try all essential matches
             for bindings, essential_dependencies in multibinder(schemes[len(rule.floatings):], steps["|-"]):
@@ -94,7 +95,6 @@ def closure_step(rules, steps):
 
         # otherwise try performing rule on all pile wff combos
         else:
-            # continue # skip for now, proliferates too many essentialless rule applications? but needed for a1i.
 
             # apply rule to all wff combinations for metavariables
             wffs = list(steps["wff"].values())
@@ -127,8 +127,141 @@ def closure_step(rules, steps):
                 assert status == "", status
                 new_steps["|-"][step.conclusion] = step
 
+    return new_steps
+
+@profile
+def closure_step2(rules, steps):
+    """
+    One step of deductive closure
+        rules[typecode]: list of rule objects
+        steps[typecode][conc]: proof step with conclusion conc
+    returns new_steps, same format as steps
+    """
+
+    wffs = list(steps["wff"].values())
+    ent_trie = mt.trieify(steps["|-"])
+
+    new_steps = {"wff": {}, "|-": {}}
+    for rule in rules["|-"]:
+
+        # get mandatory variables in conclusion but not essentials
+        concmand = tuple(rule.mandatory - set(sum([e.tokens for e in rule.essentials], [])))
+        
+        # schemes for hypotheses
+        schemes = [Scheme(h.tokens, rule.mandatory & set(h.tokens)) for h in rule.hypotheses]
+        schemes, standardizer = standardize(schemes) # needed for multibinder to work correctly
+
+        # generator for essential hypotheses: pile binder against |- steps
+        if len(rule.essentials) > 0:
+            eh_gen = pilebinder(schemes[len(rule.floatings):], ent_trie)
+        else:
+            eh_gen = [({}, ())]
+
+        # generator for conc-only mandatories: combos of wff steps
+        if len(concmand) > 0:
+            cm_gen = it.product(wffs, repeat=len(concmand))
+        else:
+            cm_gen = [()]
+
+        # try all combos
+        for ((bindings, essential_dependencies), concmand_dependencies) in it.product(eh_gen, cm_gen):
+
+            # update bindings with conc mandatory deps
+            bindings = dict(bindings)
+            collision = False # make sure they dont collide with essentials
+            for v, wff in zip(concmand, concmand_dependencies):
+                v = standardizer[v][0] # since conclusion scheme not included
+                wff = wff.conclusion[1:] # extract replacement tokens
+                if v in bindings and bindings[v] != wff:
+                    this shouldnt happen by definition of conc mands
+                    collision = True
+                    break
+                bindings[v] = wff
+
+            # collision, this combo doesn't work
+            if collision: continue
+
+            # backsearch on floating hypotheses under binding
+            floating_dependencies = []
+            for s in schemes[:len(rule.floatings)]:
+                subgoal = s.substitute(bindings)
+                # success, step = mb.backsearch(subgoal, rules["wff"], disjoint=None, pile=steps["wff"], max_depth=-1, verbose=False)
+                success, step = mb.backsearch(subgoal, rules["wff"], disjoint=None, pile=None, max_depth=-1, verbose=False)
+                if not success:
+                    # print(f"backsearch failed on {' '.join(subgoal)}")
+                    break
+                floating_dependencies.append(step)
+
+            # if backsearch worked, update closure
+            if len(floating_dependencies) == len(rule.floatings):
+                print(rule)
+                for s in schemes: print(s)
+                print(bindings)
+                print(tuple(floating_dependencies) + essential_dependencies)
+                essential dependency looks like it should not have pilebinded.  use this as test case for pilebinder?
+                step, status = mp.perform(rule, tuple(floating_dependencies) + essential_dependencies)
+                assert status == "", status # if this point reached, rule should apply
+                new_steps["|-"][step.conclusion] = step # should all substeps including wffs also be added?
 
     return new_steps
+
+@profile
+def bisearch(db, goal_label):
+
+    rules, steps = init_search(db, goal_label)
+    goal_tokens = tuple(db.rules[goal_label].consequent.tokens)
+
+    # print("rules:")
+    # for tc in rules.keys():
+    #     print(f"{tc}: {' '.join(r.consequent.label for r in rules[tc])}")
+
+    # print("initial pile:")
+    # for tc in steps.keys():
+    #     for conc, step in steps[tc].items():
+    #         print(' '.join(conc))
+
+    print(f"initial pile: {len(steps['|-'].keys())} |- steps")
+
+    # two steps of deductive closure
+    forsolved = backsolved = False
+    for dstep in range(2):
+        print(f"** dstep {dstep} **")
+
+        # try backsearching against current pile
+        backpile = steps["wff"] | steps["|-"]
+        backtrie = mt.trieify(backpile)
+        success, backstep = mb.backsearch_trie(goal_tokens, rules["all"], disjoint=None, pile_root=backtrie, max_depth=dstep+1, verbose=False)
+        # success2, backstep2 = mb.backsearch(goal_tokens, rules["all"], disjoint=None, pile=backpile, max_depth=dstep+1, verbose=False)
+        # assert success == success2
+        if success:
+            backsolved = True
+            print("backsolved!")
+            break
+
+        # new_steps = closure_step(rules, steps)
+        new_steps = closure_step2(rules, steps)
+        for conc, step in new_steps["|-"].items():
+            if conc not in steps["|-"]:
+                steps["|-"][conc] = step
+
+        print(f"{len(steps['|-'].keys())} current |- closure steps")
+        # print("current closure steps:")
+        # for conc in steps["|-"].keys(): print(' '.join(conc))
+
+        # stop if goal is contained
+        if goal_tokens in steps["|-"]:
+            forsolved = True
+            print("forsolved!")
+            break
+
+    proof = None
+    if forsolved:
+        proof = steps["|-"][goal_tokens].normal_proof()
+    elif backsolved:
+        proof = backstep.normal_proof()
+
+    return (forsolved or backsolved), proof
+
 
 if __name__ == "__main__":
 
@@ -137,6 +270,7 @@ if __name__ == "__main__":
     import metamathpy.setmm as ms
     db = ms.load_pl()
 
+    # saved up to but not including 90: com45
     # goal_label = "mp2"
     # goal_label = "mp2b"
     # goal_label = "a1i"
@@ -150,67 +284,25 @@ if __name__ == "__main__":
     # goal_label = "4syl"
     # goal_label = "mpi"
     # goal_label = "mpisyl"
+    # goal_label = "pm2.27"
+    # goal_label = "mpsylsyld"
+    # goal_label = "com5r"
+    goal_label = "pm2.43d"
 
-    goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p"]
-    saved up to but not including 90: com45
+    goal_labels = [goal_label]
+    # goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p"]
     goal_times = []
     goal_proofs = []
     for gl, goal_label in enumerate(goal_labels):
 
         print(f"\n *** attempting {goal_label} ({gl} of {len(goal_labels)})... ***\n")
         start_time = perf_counter()
-    
-        rules, steps = init_search(db, goal_label)
-        goal_tokens = tuple(db.rules[goal_label].consequent.tokens)
-    
-        # print("rules:")
-        # for tc in rules.keys():
-        #     print(f"{tc}: {' '.join(r.consequent.label for r in rules[tc])}")
-    
-        # print("initial pile:")
-        # for tc in steps.keys():
-        #     for conc, step in steps[tc].items():
-        #         print(' '.join(conc))
-    
-        print(f"initial pile: {len(steps['|-'].keys())} |- steps")
-    
-        # two steps of deductive closure
-        forsolved = backsolved = False
-        for dstep in range(2):
-            print(f"** dstep {dstep} **")
-    
-            # try backsearching against current pile
-            backpile = steps["wff"] | steps["|-"]
-            success, backstep = mb.backsearch(goal_tokens, rules["all"], disjoint=None, pile=backpile, max_depth=dstep+1, verbose=False)
-            if success:
-                backsolved = True
-                print("backsolved!")
-                break
-    
-            new_steps = closure_step(rules, steps)
-            for conc, step in new_steps["|-"].items():
-                if conc not in steps["|-"]:
-                    steps["|-"][conc] = step
-    
-            print(f"{len(steps['|-'].keys())} current |- closure steps")
-            # print("current closure steps:")
-            # for conc in steps["|-"].keys(): print(' '.join(conc))
-    
-            # stop if goal is contained
-            if goal_tokens in steps["|-"]:
-                forsolved = True
-                print("forsolved!")
-                break
-
+        solved, proof = bisearch(db, goal_label)
         total_time = perf_counter()-start_time
 
         # verify proof
-        if forsolved or backsolved:
+        if solved:
             claim = db.rules[goal_label]
-            if forsolved:
-                proof = steps["|-"][goal_tokens].normal_proof()
-            else:
-                proof = backstep.normal_proof()
             claim.consequent = md.Statement(claim.consequent.label, claim.consequent.tag, claim.consequent.tokens, proof)
             mp.verify_normal_proof(db, claim) # raises assertion error if unverified
             print("Verified!")

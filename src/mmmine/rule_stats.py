@@ -20,7 +20,8 @@ if __name__ == "__main__":
             if len(rule.mandatory - set(sum([e.tokens for e in rule.essentials],[]))) > 0:
                 concwork_rules.append(rule)
     print(f"{len(concwork_rules)} propositions with mandatories not contained in >0 essentials")
-    print(concwork_rules[0])
+    for rule in concwork_rules[:3]:
+        print(rule)
 
     ## checking how far you can get without work variables (not very):
     # get rules that do not introduce work variables

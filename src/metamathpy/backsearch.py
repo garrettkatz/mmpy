@@ -1,5 +1,10 @@
 import metamathpy.proof as mp
-from metamathpy.substitution import substitute, Scheme, multibinder
+import metamathpy.piletrie as mt
+from metamathpy.substitution import substitute, Scheme, multibinder, pilebinder
+try:
+    profile
+except NameError:
+    profile = lambda x: x
 
 class AndNode:
     """
@@ -110,6 +115,7 @@ class OrNode:
 
         return False, None
 
+@profile
 def backsearch(goal, rules, disjoint=None, pile=None, max_depth=-1, verbose=False):
     """
     parameters:
@@ -216,6 +222,113 @@ def backsearch(goal, rules, disjoint=None, pile=None, max_depth=-1, verbose=Fals
     # no rules worked
     return False, None
 
+@profile
+def backsearch_trie(goal, rules, disjoint=None, pile_root=None, max_depth=-1, verbose=False):
+    """
+    parameters:
+      goal: token sequence for claim to prove
+      rules: list of rule objects to use as justifications
+      disjoint: disjoint variable requirements of claim, if any
+      pile_root: root of pile trie of proof steps available for satisfying leaves, if any (pile[step.conclusion] = step)
+      max_depth: if >= 0, dont search past this depth
+      verbose: if True, print debug messages
+    returns (success, rootstep)
+      success: true or false
+      rootstep: root of partial proof step tree (wraps goal, rule, dependencies, substitution), or None if not successful
+    todo: test disjoint variable code branches
+    """
+
+    # initialize arguments if not provided
+    if pile_root is None: pile_root = mt.PileTrieNode()
+
+    # check if current goal already proved in pile
+    if goal in pile_root: return True, pile_root[goal]
+
+    # depth limit reached
+    if verbose: print(" "*max_depth + f">>> {' '.join(goal)}")
+    if max_depth == 0: return False, None
+
+    # or-loop (only one rule needs to justify)
+    for rule in rules:
+
+        # a hypothesis-less "rule" (ie, hypothesis of whats being currently proved) has to match without substitutions
+        if len(rule.hypotheses) == 0:
+            if tuple(rule.consequent.tokens) == goal: # todo: in finalize, change token list to tuple?
+                if verbose: print(" "*max_depth + f">>> {' '.join(goal)} <={rule.consequent.label}_/(0)")
+                return True, mp.ProofStep(goal, rule)
+
+        # else try all possible substitutions
+        else:
+
+            # determine whether this rule introduces work variables
+            work_variables = tuple(rule.mandatory - set(rule.consequent.tokens))
+            needs_work = (len(work_variables) > 0)
+
+            # if so, standardize apart
+            if needs_work:
+                standardizer = {wv: (f"wv{d}",) for (d, wv) in enumerate(work_variables)}
+                work_variables = tuple(f"wv{d}" for (d, wv) in enumerate(work_variables))
+
+            for substitution in rule.scheme.matches(goal):
+
+                psub = {k:' '.join(v) for k,v in substitution.items()}
+                if verbose: print(" "*max_depth + f">>> {' '.join(goal)} <={rule.consequent.label}{psub}")
+
+                # skip if disjoint requirements not satisfied or too many inherited
+                inherited, message = mp.disjoint_variable_check(rule, substitution)
+                if inherited is None: continue
+                if disjoint is not None and inherited > disjoint: continue
+
+                # and-loop: all dependencies must be proved (base case: all([]) is True)
+                if needs_work:
+
+                    # set up work variable schemes for each hypothesis
+                    schemes = []
+                    for hyp in rule.hypotheses:
+                        hyp_tokens = substitute(hyp.tokens, standardizer)
+                        hyp_tokens = substitute(hyp_tokens, substitution)
+                        scheme = Scheme(hyp_tokens, work_variables)
+                        schemes.append(scheme)
+
+                    if verbose:
+                        print(" "*max_depth + "work vars needed, schemes:")
+                        for scheme in schemes: print(" "*max_depth + str(scheme))
+
+                    # use first (if any) work variable binding satisfied by pile
+                    for bindings, steps in pilebinder(schemes, pile_root):
+                        dependencies = {hyp.label: step for hyp, step in zip(rule.hypotheses, steps)}
+
+                        if verbose: print(" "*max_depth + f">>> {' '.join(goal)} <={rule.consequent.label}{psub}_/({len(dependencies)})[wv:{bindings}]")
+
+                        return True, mp.ProofStep(goal, rule, dependencies, substitution | bindings, inherited)
+
+                else:
+                    # no work variables, try backsearching each hypothesis
+                    dependencies = {}
+                    for hyp in rule.hypotheses:
+
+                        # try satisfying
+                        subgoal = substitute(hyp.tokens, substitution)
+                        success, step = backsearch_trie(subgoal, rules, disjoint, pile_root, max_depth-1, verbose)
+                        if not success: break
+                        if verbose: print(" "*max_depth + f">>> {' '.join(goal)} <={rule.consequent.label}{psub}_/{hyp.label}")
+
+                        # satisfied, can use step as dependency
+                        dependencies[hyp.label] = step
+
+                    # if some hypotheses not satisfied, this substitution and rule does not work
+                    if len(dependencies) < len(rule.hypotheses):
+                        if verbose: print(" "*max_depth + f">>> {' '.join(goal)} <={rule.consequent.label}{psub}X({len(dependencies)}|{len(rule.hypotheses)})")
+                        continue
+    
+                    if verbose: print(" "*max_depth + f">>> {' '.join(goal)} <={rule.consequent.label}{psub}_/({len(dependencies)})")
+
+                    # otherwise, it worked, construct and return root step
+                    return True, mp.ProofStep(goal, rule, dependencies, substitution, inherited)
+
+    # no rules worked
+    return False, None
+
 if __name__ == "__main__":
 
     import numpy as np
@@ -293,6 +406,15 @@ if __name__ == "__main__":
     print(rootstep.tree_string())
     input("..")
 
+    # same test but with pile trie
+    pile_root = mt.trieify(pile)
+    goal = tuple("|- ( ps -> ph )".split())
+    success, rootstep = backsearch_trie(goal, a1i_rules, pile_root=pile_root, max_depth=2, verbose=True)
+    assert success
+    print("a1i proof with trie:")
+    print(rootstep.tree_string())
+    input("..")
+
     ## similar test again, but requiring work variable substitution
     # instance of a1i with compound expression ( ch -> ph ) for ph
     a1i_rules = wff_rules + [db.rules[lab] for lab in ("ax-mp","a1i.1")]
@@ -320,6 +442,15 @@ if __name__ == "__main__":
     success, rootstep = backsearch(goal, a1i_rules, pile=pile, max_depth=2, verbose=True)
     assert success
     print("a1i[ch -> ph] proof:")
+    print(rootstep.tree_string())
+    input("..")
+
+    # now with trie
+    pile_root = mt.trieify(pile)
+    goal = tuple("|- ( ps -> ( ch -> ph ) )".split())
+    success, rootstep = backsearch_trie(goal, a1i_rules, pile_root=pile_root, max_depth=2, verbose=True)
+    assert success
+    print("a1i[ch -> ph] proof with trie:")
     print(rootstep.tree_string())
     input("..")
 

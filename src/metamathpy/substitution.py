@@ -48,7 +48,39 @@ def match_helper(vartoks, chunks, tokens, substitution):
                 next_sub = substitution | {v: tokens[:t]}
                 # recurse on the remaining tails with the new substitution
                 yield from match_helper(vartoks[1:], chunks[1:], tokens[t+n:], next_sub)
-                
+
+@profile
+def pile_match_helper(vartoks, chunks, node, varfix, substitution):
+    """
+    recursive helper for Scheme.matches
+    matches the tokens under pile trie node against scheme tail zip(vartoks[i:], chunks[i+1:])
+    schemes have one more chunk than vartok and the leading chunk should be omitted in the top-level call
+    varfix is leading token sequence to be substituted for vartoks[0], start empty and fill during the recursion
+    substition should start empty at the top-level call and is populated during the recursion
+    """
+
+    this is buggy! if same variable occurs multiple times you have to apply its first substitution value at subsequent occurrences
+
+    # base case: no chunks left in the tail
+    if len(chunks) == 0:
+        # current substitution works if there is a matching step with no tokens left either
+        if node.step is not None: yield (substitution, node.step)
+
+    # otherwise, iterate over possibilities for current vartok
+    else:
+
+        # if varfix not empty, try ending vartok[0] substitution here
+        if len(varfix) > 0:
+            # will only work if next chunk can be matched
+            descendent = node.traverse(chunks[0])
+            if descendent is not None:
+                # update substitution for current vartok and advance to next one
+                next_sub = substitution | {vartoks[0]: varfix}
+                yield from pile_match_helper(vartoks[1:], chunks[1:], descendent, (), next_sub)
+
+        # also try recursively appending each possible next token (if any) to varfix
+        for (token, child) in node.children.items():
+            yield from pile_match_helper(vartoks, chunks, child, varfix + (token,), substitution)
 
 class Scheme:
     """
@@ -98,6 +130,20 @@ class Scheme:
         # otherwise initiate recursive helper on remainder
         yield from match_helper(self.vartoks, self.chunks[1:], tokens[len(self.chunks[0]):], {})
 
+    @profile
+    def pile_matches(self, root):
+        """
+        Generator that yields all (sub, step) pairs such that self.substitute(sub) matches step in pile
+        Input should be root of pile trie
+        """
+
+        # no matches if prefix chunk does not match
+        node = root.traverse(self.chunks[0])
+        if node is None: return
+
+        # otherwise initiate recursive helper on remainder
+        yield from pile_match_helper(self.vartoks, self.chunks[1:], node, (), {})
+
 def standardize(schemes, base="v", start=0):
     """
     Renames scheme variables to {base}{start}, {base}{start+1}, ...
@@ -111,7 +157,7 @@ def standardize(schemes, base="v", start=0):
         tokens = s.substitute(standardizer)
         variables = [standardizer[v][0] for v in s.variables]
         standardized.append(Scheme(tokens, variables))
-    return standardized
+    return standardized, standardizer
 
 @profile
 def multibinder(schemes, pile):
@@ -137,6 +183,29 @@ def multibinder(schemes, pile):
 
             for sub_bindings, steps in multibinder(sub_schemes, pile):
                 yield (bindings | sub_bindings), ((step,) + steps)
+
+@profile
+def pilebinder(schemes, pile_trie_root):
+    # like multibinder but with a pile trie data structure
+
+    for (bindings, step) in schemes[0].pile_matches(pile_trie_root):
+
+        # base case: this is the last scheme, so done
+        if len(schemes) == 1:
+            yield bindings, (step,)
+            continue
+
+        # recursive case: check if these bindings also work for remaining schemes
+        sub_schemes = []
+        for scheme in schemes[1:]:
+            sub_schemes.append(Scheme(
+                scheme.substitute(bindings),
+                set(scheme.variables) - set(bindings.keys())
+            ))
+
+        for sub_bindings, steps in pilebinder(sub_schemes, pile_trie_root):
+            yield (bindings | sub_bindings), ((step,) + steps)
+
 
 
 if __name__ == "__main__":
@@ -183,11 +252,53 @@ if __name__ == "__main__":
         tuple("|- ps".split()): mp.ProofStep(tuple("|- ps".split()), db.rules["mp2.2"]),
         tuple("|- ( ps -> ch )".split()): mp.ProofStep(tuple("|- ( ps -> ch )".split()), db.rules["ax-mp"]),
     }
-    schemes = standardize(schemes)
+    schemes, _ = standardize(schemes)
     print("multibinder schemes:", schemes)
     print("multibinder vv")
+    multibinds = []
     for binding, steps in multibinder(schemes, pile):
         print(binding, steps)
+        multibinds.append((binding, steps))
     print("multibinder ^^ [should be one match]")
 
+    # test pile trie matching
+    from metamathpy.piletrie import trieify
+    root = trieify(pile)
+    print(root.tree_string())
+
+    for scheme in schemes:
+        print(f"pile matching {scheme}")
+        for (sub, step) in scheme.pile_matches(root):
+            print("sub:", sub)
+            print("stp:", step)
+    print("scheme pile matching ^^")
+
+    pilebinds = []
+    print("pilebinder vv")
+    for binding, steps in pilebinder(schemes, root):
+        print(binding, steps)
+        pilebinds.append((binding, steps))
+    print("pilebinder results ^^")
+    for binding, steps in pilebinds:
+        assert (binding, steps) in multibinds
+    for binding, steps in multibinds:
+        assert (binding, steps) in pilebinds
+    print("assertions passed, pilebinder = multibinder")
+
+    # particular pilebinder test case
+    schemes = [
+        Scheme("|- ( v0 -> ( v0 -> v1 ) )".split(), ('v0', 'v1')),
+    ]
+    pile = {
+        tuple("|- ( ph -> ( ps -> ( ps -> ch ) ) )".split()): mp.ProofStep(tuple("|- ( ph -> ( ps -> ( ps -> ch ) ) )".split()), db.rules["pm2.43d.1"]),
+    }
+    root = trieify(pile)
+    print(root.tree_string())
+    print("scheme:", schemes[0])
+    for sub, step in schemes[0].pile_matches(root):
+        print(sub)
+        print(step)
+    # for binding, steps in pilebinder(schemes, root):
+    #     print(binding)
+    #     print(steps)
 
