@@ -172,10 +172,13 @@ def closure_step2(rules, steps):
             for v, wff in zip(concmand, concmand_dependencies):
                 v = standardizer[v][0] # since conclusion scheme not included
                 wff = wff.conclusion[1:] # extract replacement tokens
-                if v in bindings and bindings[v] != wff:
-                    this shouldnt happen by definition of conc mands
-                    collision = True
-                    break
+
+                # this shouldnt happen by definition of conc mands
+                assert not (v in bindings and bindings[v] != wff)
+                # if v in bindings and bindings[v] != wff:
+                #     collision = True
+                #     break
+
                 bindings[v] = wff
 
             # collision, this combo doesn't work
@@ -194,11 +197,10 @@ def closure_step2(rules, steps):
 
             # if backsearch worked, update closure
             if len(floating_dependencies) == len(rule.floatings):
-                print(rule)
-                for s in schemes: print(s)
-                print(bindings)
-                print(tuple(floating_dependencies) + essential_dependencies)
-                essential dependency looks like it should not have pilebinded.  use this as test case for pilebinder?
+                # print(rule)
+                # for s in schemes: print(s)
+                # print(bindings)
+                # print(tuple(floating_dependencies) + essential_dependencies)
                 step, status = mp.perform(rule, tuple(floating_dependencies) + essential_dependencies)
                 assert status == "", status # if this point reached, rule should apply
                 new_steps["|-"][step.conclusion] = step # should all substeps including wffs also be added?
@@ -222,45 +224,55 @@ def bisearch(db, goal_label):
 
     print(f"initial pile: {len(steps['|-'].keys())} |- steps")
 
-    # two steps of deductive closure
+    # track deductive closure depth in forward search
+    forward_strata = {0: steps}
+    forward_tries = {0: mt.trieify(steps["wff"] | steps["|-"])}
+
+    # iterative deepening
     forsolved = backsolved = False
-    for dstep in range(2):
-        print(f"** dstep {dstep} **")
+    for totdep in range(4):
+        for fordep in range(totdep+1):
+            backdep = totdep - fordep
+            print(f"** [{totdep=}]: ({fordep=}) + ({backdep=}) **")
 
-        # try backsearching against current pile
-        backpile = steps["wff"] | steps["|-"]
-        backtrie = mt.trieify(backpile)
-        success, backstep = mb.backsearch_trie(goal_tokens, rules["all"], disjoint=None, pile_root=backtrie, max_depth=dstep+1, verbose=False)
-        # success2, backstep2 = mb.backsearch(goal_tokens, rules["all"], disjoint=None, pile=backpile, max_depth=dstep+1, verbose=False)
-        # assert success == success2
-        if success:
-            backsolved = True
-            print("backsolved!")
-            break
+            # expand forward closure if needed
+            if fordep not in forward_strata:
+                print(f"closure step to depth {fordep}...")
+                steps = forward_strata[fordep-1]
+                # new_steps = closure_step(rules, steps)
+                new_steps = closure_step2(rules, steps)
+                forward_strata[fordep] = {"wff": dict(steps["wff"]), "|-": dict(steps["|-"])}
+                for conc, step in new_steps["|-"].items():
+                    if conc not in forward_strata[fordep]["|-"]:
+                        forward_strata[fordep]["|-"][conc] = step
+        
+                print(f"{len(forward_strata[fordep]['|-'])} current |- closure steps")
+                forward_tries[fordep] = mt.trieify(forward_strata[fordep]["wff"] | forward_strata[fordep]["|-"])
+                # print("current closure steps:")
+                # for conc in steps["|-"].keys(): print(' '.join(conc))
 
-        # new_steps = closure_step(rules, steps)
-        new_steps = closure_step2(rules, steps)
-        for conc, step in new_steps["|-"].items():
-            if conc not in steps["|-"]:
-                steps["|-"][conc] = step
+            # stop if forward search contains goal
+            if goal_tokens in forward_strata[fordep]["|-"]:
+                print("forsolved!")
+                proof = forward_strata[fordep]["|-"][goal_tokens].normal_proof()
+                return True, proof
 
-        print(f"{len(steps['|-'].keys())} current |- closure steps")
-        # print("current closure steps:")
-        # for conc in steps["|-"].keys(): print(' '.join(conc))
+            # else try backsearching against current pile
+            # steps = forward_strata[fordep]
+            # backpile = steps["wff"] | steps["|-"]
+            # backtrie = mt.trieify(backpile)
+            backtrie = forward_tries[fordep]
+            # success, backstep = mb.backsearch_trie(goal_tokens, rules["all"], disjoint=None, pile_root=backtrie, max_depth=dstep+1, verbose=False)
+            success, backstep = mb.backsearch_trie(goal_tokens, rules["all"], disjoint=None, pile_root=backtrie, max_depth=backdep, verbose=False)
+            # success2, backstep2 = mb.backsearch(goal_tokens, rules["all"], disjoint=None, pile=backpile, max_depth=dstep+1, verbose=False)
+            # assert success == success2
+            if success:
+                print("backsolved!")
+                proof = backstep.normal_proof()
+                return True, proof
 
-        # stop if goal is contained
-        if goal_tokens in steps["|-"]:
-            forsolved = True
-            print("forsolved!")
-            break
-
-    proof = None
-    if forsolved:
-        proof = steps["|-"][goal_tokens].normal_proof()
-    elif backsolved:
-        proof = backstep.normal_proof()
-
-    return (forsolved or backsolved), proof
+    # search failed
+    return False, None
 
 
 if __name__ == "__main__":
@@ -287,10 +299,11 @@ if __name__ == "__main__":
     # goal_label = "pm2.27"
     # goal_label = "mpsylsyld"
     # goal_label = "com5r"
-    goal_label = "pm2.43d"
+    # goal_label = "pm2.43d" # used to debug pile matching
+    # goal_label = "pm2.83"
 
-    goal_labels = [goal_label]
-    # goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p"]
+    # goal_labels = [goal_label]
+    goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p"]
     goal_times = []
     goal_proofs = []
     for gl, goal_label in enumerate(goal_labels):
@@ -303,10 +316,13 @@ if __name__ == "__main__":
         # verify proof
         if solved:
             claim = db.rules[goal_label]
+            old_root, _ = mp.verify_compressed_proof(db, claim)
+            old_proof = old_root.normal_proof()
             claim.consequent = md.Statement(claim.consequent.label, claim.consequent.tag, claim.consequent.tokens, proof)
             mp.verify_normal_proof(db, claim) # raises assertion error if unverified
             print("Verified!")
-            print("proof: " + " ".join(proof))
+            print("old proof: " + " ".join(old_proof))
+            print("new proof: " + " ".join(proof))
             print(f"total time: {total_time:.3f}s")
 
             goal_times.append(total_time)

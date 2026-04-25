@@ -18,6 +18,18 @@ def substitute(symbols, substitution):
     return result
 # from substitute import substitute # cython version
 
+def compose(t, s):
+    """
+    equivalent substitution to performing s followed by t
+    """
+    ts = {}
+    for k, v in s.items():
+        tv = substitute(v, t)
+        if tv[0] != k: ts[k] = tv
+    for k, v in t.items():
+        if k not in s: ts[k] = v
+    return ts
+
 @profile
 def match_helper(vartoks, chunks, tokens, substitution):
     """
@@ -59,8 +71,6 @@ def pile_match_helper(vartoks, chunks, node, varfix, substitution):
     substition should start empty at the top-level call and is populated during the recursion
     """
 
-    this is buggy! if same variable occurs multiple times you have to apply its first substitution value at subsequent occurrences
-
     # base case: no chunks left in the tail
     if len(chunks) == 0:
         # current substitution works if there is a matching step with no tokens left either
@@ -69,18 +79,29 @@ def pile_match_helper(vartoks, chunks, node, varfix, substitution):
     # otherwise, iterate over possibilities for current vartok
     else:
 
-        # if varfix not empty, try ending vartok[0] substitution here
-        if len(varfix) > 0:
-            # will only work if next chunk can be matched
-            descendent = node.traverse(chunks[0])
+        # if current vartok already substituted, need to apply here too
+        if vartoks[0] in substitution:
+            # will only work if substitution still matches
+            descendent = node.traverse(substitution[vartoks[0]] + chunks[0])
             if descendent is not None:
-                # update substitution for current vartok and advance to next one
-                next_sub = substitution | {vartoks[0]: varfix}
-                yield from pile_match_helper(vartoks[1:], chunks[1:], descendent, (), next_sub)
+                # advance to tail with same substitution
+                yield from pile_match_helper(vartoks[1:], chunks[1:], descendent, (), substitution)
 
-        # also try recursively appending each possible next token (if any) to varfix
-        for (token, child) in node.children.items():
-            yield from pile_match_helper(vartoks, chunks, child, varfix + (token,), substitution)
+        # otherwise, continue searching current vartok's candidate substitutions
+        else:
+
+            # if varfix not empty, try ending current vartok substitution here
+            if len(varfix) > 0:
+                # will only work if next chunk can be matched
+                descendent = node.traverse(chunks[0])
+                if descendent is not None:
+                    # update substitution for current vartok and advance to next one
+                    next_sub = substitution | {vartoks[0]: varfix}
+                    yield from pile_match_helper(vartoks[1:], chunks[1:], descendent, (), next_sub)
+    
+            # also try recursively appending each possible next token (if any) to varfix
+            for (token, child) in node.children.items():
+                yield from pile_match_helper(vartoks, chunks, child, varfix + (token,), substitution)
 
 class Scheme:
     """
@@ -206,6 +227,90 @@ def pilebinder(schemes, pile_trie_root):
         for sub_bindings, steps in pilebinder(sub_schemes, pile_trie_root):
             yield (bindings | sub_bindings), ((step,) + steps)
 
+@profile
+def unify_sequences(xt, yt, vts, xh=(), yh=(), u=0, s=None, prefix=None):
+    """
+    generates all substitutions s such that sub(xt,s) == sub(yt,s)
+    xt, yt are token string tails, assumes standardized apart at top-level call
+    vts are variable tokens
+    _h are current substitution heads for current variables xt[0] and yt[0] (or () if non-variables)
+    u is counter for fresh work variables
+    s is the substitution, built up during recursion
+    prefix: None or "" in top-level call for verbosity
+    """
+
+    if s is None: s = {}
+
+    # base case: both strings done, substitution works
+    if xt == yt == (): yield s   
+
+    # base case: only one string done, failure
+    if () in (xt, yt): return
+
+    if prefix is not None:
+        ss = {k: ' '.join(v) for k,v in s.items()}
+        print(f"{prefix}unify({' '.join(xt)}, {' '.join(yt)}, {vts}, xh={' '.join(xh)}, yh={' '.join(yh)}, s={ss}")
+        prefix = prefix + " "
+
+    # if current tokens both variables:
+    if (xt[0] in vts) and (yt[0] in vts):
+
+        # if same variable, no new substitution needed, advance both
+        if xt[0] == yt[0]:
+            yield from unify_sequences(xt[1:], yt[1:], vts, (), (), u, s, prefix)
+
+        # otherwise introduce new variable for any overlap and advance in at least one sequence
+        else:
+
+            # name fresh overlap variable
+            v = f"u{u}"
+
+            # advance in x, committing to substitution for xt[0]
+            assert xt[0] not in xh + (v,) # occurs check?
+            xs = {xt[0]: xh + (v,)}
+            # yield from unify_sequences(substitute(xt[1:], xs), substitute(yt, xs), vts | {v}, (), yh + (v,), u+1, compose(xs, s), prefix)
+            yield from unify_sequences(substitute(xt[1:], xs), substitute(yt, xs), vts | {v}, (), substitute(yh, xs) + (v,), u+1, compose(xs, s), prefix)
+
+            # advance in y, committing to substitution for yt[0]
+            assert yt[0] not in yh + (v,) # occurs check?
+            ys = {yt[0]: yh + (v,)}
+            # yield from unify_sequences(substitute(xt, ys), substitute(yt[1:], ys), vts | {v}, xh + (v,), (), u+1, compose(ys, s), prefix)
+            yield from unify_sequences(substitute(xt, ys), substitute(yt[1:], ys), vts | {v}, substitute(xh, ys) + (v,), (), u+1, compose(ys, s), prefix)
+
+            # advance in both, committing to both substitutions one at a time
+            xys = compose(xs, ys) # need to compose since xt[0] might be in yh or vice versa
+            if prefix is not None:
+                print(f"{prefix}both!")
+                print(prefix + str({a:' '.join(b) for a,b in xys.items()}))
+            yield from unify_sequences(substitute(xt[1:], xys), substitute(yt[1:], xys), vts | {v}, (), (), u+1, compose(xys, s), prefix)
+
+    # if only one is variable:
+    elif xt[0] in vts:
+
+        # only advance in y, extending current substitution for xt[0]
+        yield from unify_sequences(xt, yt[1:], vts, xh + yt[:1], (), u, s, prefix)
+
+        # advance in both, committing to substitution for xt[0]
+        xs = {xt[0]: xh + yt[:1]}
+        yield from unify_sequences(substitute(xt[1:], xs), substitute(yt[1:], xs), vts, (), (), u, compose(xs, s), prefix)
+
+    elif yt[0] in vts:
+
+        # only advance in x, extending current substitution for yt[0]
+        yield from unify_sequences(xt[1:], yt, vts, (), yh + xt[:1], u, s, prefix)
+
+        # advance in both, committing to substitution for yt[0]
+        ys = {yt[0]: yh + xt[:1]}
+        yield from unify_sequences(substitute(xt[1:], ys), substitute(yt[1:], ys), vts, (), (), u, compose(ys, s), prefix)
+
+    # both constants:
+    else:
+
+        # unification fails if constants do not match
+        if xt[0] != yt[0]: return
+
+        # otherwise, advance both
+        yield from unify_sequences(xt[1:], yt[1:], vts, (), (), u, s, prefix)
 
 
 if __name__ == "__main__":
@@ -226,7 +331,7 @@ if __name__ == "__main__":
         subd = scheme.substitute(subst)
         assert subd == tuple(string.split())
         print({v: ' '.join(s) for (v,s) in subst.items()}, " ".join(subd))
-    input('.')
+    # input('.')
 
     scheme = Scheme("wff ( ph -> ph )".split(), {"ph"})
     print(scheme)
@@ -235,7 +340,7 @@ if __name__ == "__main__":
     print(f"matches to {string}:")
     for subst in scheme.matches(string.split()):
         print({v: ' '.join(s) for (v,s) in subst.items()}, " ".join(scheme.substitute(subst)))
-    input('.')
+    # input('.')
 
     # this more complex one works, but does not filter non-wff substitutions since you dont recursively prove yet (thats done in backsearch.py)
     scheme = Scheme("wff ( ph -> ps )".split(), {"ph", "ps"})
@@ -294,11 +399,129 @@ if __name__ == "__main__":
     }
     root = trieify(pile)
     print(root.tree_string())
-    print("scheme:", schemes[0])
+    print("pile trie^^, scheme to match against it:", schemes[0])
+    num_subs = 0
     for sub, step in schemes[0].pile_matches(root):
-        print(sub)
-        print(step)
-    # for binding, steps in pilebinder(schemes, root):
-    #     print(binding)
-    #     print(steps)
+        subd = schemes[0].substitution(sub)
+        print("sub", sub)
+        print("subd", subd)
+        print("step", step)
+        assert subd == step.conclusion, "subd != step"
+        num_subs += 1
+    assert num_subs == 0
+    print(f"^^ all matches (there are {num_subs})")
+
+    # ## test unify schemes (assumes already standardized)
+    # x = Scheme("|- ph".split(), ("ph",))
+    # y = Scheme("|- ps".split(), ("ps",))
+    # print(f"unifying {x} with {y}:")
+    # for sub in unify_schemes(x, y):
+    #     print({k: " ".join(v) for k,v in sub.items()})
+
+    # x = Scheme("|- -. ph".split(), ("ph",))
+    # y = Scheme("|- ps".split(), ("ps",))
+    # print(f"unifying {x} with {y}:")
+    # for s in unify_schemes(x, y):
+    #     print({k: " ".join(v) for k,v in s.items()})
+    #     print(" ".join(x.substitute(s)))
+    #     assert x.substitute(s) == y.substitute(s)
+
+    # x = Scheme("|- ( ph -> ch )".split(), ("ph","ch"))
+    # y = Scheme("|- ps".split(), ("ps",))
+    # print(f"unifying {x} with {y}:")
+    # for s in unify_schemes(x, y):
+    #     print({k: " ".join(v) for k,v in s.items()})
+    #     print(" ".join(x.substitute(s)))
+    #     assert x.substitute(s) == y.substitute(s)
+
+    # x = Scheme("|- -. ph".split(), ("ph",))
+    # y = Scheme("|- ps -.".split(), ("ps",))
+    # print(f"unifying {x} with {y}:")
+    # for s in unify_schemes(x, y):
+    #     print({k: " ".join(v) for k,v in s.items()})
+    #     print(" ".join(x.substitute(s)))
+    #     assert x.substitute(s) == y.substitute(s)
+
+    # # unbalanced but should still work syntactically
+    # x = Scheme("|- ( ph -> ( ps -> ph )".split(), ("ph","ps"))
+    # y = Scheme("|- ( ch -> ta )".split(), ("ch","ta"))
+    # print(f"unifying {x}\nwith     {y}:")
+    # for s in unify_schemes(x, y):
+    #     print({k: " ".join(v) for k,v in s.items()})
+    #     print(" ".join(x.substitute(s)))
+    #     print(" ".join(y.substitute(s)))
+    #     assert x.substitute(s) == y.substitute(s)
+
+    # test composition
+    ts = compose({"y": ("z",)}, {"x": ("y",)})
+    assert ts == {"y": ("z",), "x": ("z",)}
+
+    ## test unify sequences (assumes already standardized)
+    # unify_sequences(xt, yt, xv, yv, xh=(), yh=(), u=0, s=None):
+    x = Scheme("|- ph".split(), ("ph",))
+    y = Scheme("|- ps".split(), ("ps",))
+    print(f"unifying {' '.join(x.tokens)} with {' '.join(y.tokens)}:")
+    for s in unify_sequences(x.tokens, y.tokens, set(x.variables) | set(y.variables)):
+        print({k: " ".join(v) for k,v in s.items()})
+        print(" ".join(x.substitute(s)))
+        assert x.substitute(s) == y.substitute(s)
+
+    x = Scheme("|- -. ph".split(), ("ph",))
+    y = Scheme("|- ps".split(), ("ps",))
+    print(f"unifying {' '.join(x.tokens)} with {' '.join(y.tokens)}:")
+    for s in unify_sequences(x.tokens, y.tokens, set(x.variables) | set(y.variables)):
+        print({k: " ".join(v) for k,v in s.items()})
+        print(" ".join(x.substitute(s)))
+        assert x.substitute(s) == y.substitute(s)
+
+    x = Scheme("|- ( ph -> ch )".split(), ("ph","ch"))
+    y = Scheme("|- ps".split(), ("ps",))
+    print(f"unifying {' '.join(x.tokens)} with {' '.join(y.tokens)}:")
+    for s in unify_sequences(x.tokens, y.tokens, set(x.variables) | set(y.variables)):
+        print({k: " ".join(v) for k,v in s.items()})
+        print(" ".join(x.substitute(s)))
+        assert x.substitute(s) == y.substitute(s)
+
+    x = Scheme("|- -. ph".split(), ("ph",))
+    y = Scheme("|- ps -.".split(), ("ps",))
+    print(f"unifying {' '.join(x.tokens)} with {' '.join(y.tokens)}:")
+    for s in unify_sequences(x.tokens, y.tokens, set(x.variables) | set(y.variables)):
+        print({k: " ".join(v) for k,v in s.items()})
+        print(" ".join(x.substitute(s)))
+        assert x.substitute(s) == y.substitute(s)
+
+    x = Scheme("ph -> ch".split(), ("ph","ch"))
+    y = Scheme("ps -> ta".split(), ("ps","ta"))
+    print(f"unifying {' '.join(x.tokens)} with {' '.join(y.tokens)}:")
+    for s in unify_sequences(x.tokens, y.tokens, set(x.variables) | set(y.variables)):
+        print({k: " ".join(v) for k,v in s.items()})
+        print(" ".join(x.substitute(s)))
+        assert x.substitute(s) == y.substitute(s)
+        # break
+
+    x = Scheme("ph -> ph".split(), ("ph",))
+    y = Scheme("ps -> ta".split(), ("ps","ta"))
+    print(f"unifying {' '.join(x.tokens)} with {' '.join(y.tokens)}:")
+    for s in unify_sequences(x.tokens, y.tokens, set(x.variables) | set(y.variables), prefix=""):
+        print({k: " ".join(v) for k,v in s.items()})
+        print(" ".join(x.substitute(s)))
+        print(" ".join(y.substitute(s)))
+        assert x.substitute(s) == y.substitute(s)
+        # break
+
+    # unbalanced should still work syntactically
+    xs = [ 
+        Scheme("|- ( ph -> ( ps -> ph )".split(), ("ph","ps")),
+        Scheme("|- ( ph -> ( ps -> et )".split(), ("ph","ps","et")),
+        Scheme("|- ( ph -> ( ps -> et ) )".split(), ("ph","ps","et")),
+    ]
+    y = Scheme("|- ( ch -> ta )".split(), ("ch","ta"))
+    for x in xs:
+        print(f"unifying {' '.join(x.tokens)}\nwith     {' '.join(y.tokens)}:")
+        for s in unify_sequences(x.tokens, y.tokens, set(x.variables) | set(y.variables)):
+            s = {k: v for (k,v) in s.items() if k in set(x.variables) | set(y.variables)}
+            print({k: " ".join(v) for k,v in s.items()})
+            print(" ".join(x.substitute(s)))
+            print(" ".join(y.substitute(s)))
+            assert x.substitute(s) == y.substitute(s)
 
