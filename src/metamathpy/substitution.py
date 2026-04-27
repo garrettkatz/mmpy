@@ -165,6 +165,15 @@ class Scheme:
         # otherwise initiate recursive helper on remainder
         yield from pile_match_helper(self.vartoks, self.chunks[1:], node, (), {})
 
+    def unifiers_with(self, other, max_depth=-1, prefix=None):
+        """
+        Generate unifiers with other scheme
+        assumes already standardized apart
+        """
+        for s, v in unify_words(self.tokens, other.tokens, set(self.variables) | set(other.variables), max_depth=max_depth, prefix=prefix):
+            assert self.substitute(s) == other.substitute(s)
+            yield s, v
+
 def standardize(schemes, base="v", start=0):
     """
     Renames scheme variables to {base}{start}, {base}{start+1}, ...
@@ -228,24 +237,30 @@ def pilebinder(schemes, pile_trie_root):
             yield (bindings | sub_bindings), ((step,) + steps)
 
 @profile
-def unify_sequences(xt, yt, vts, xh=(), yh=(), u=0, s=None, prefix=None):
+def unify_words(xt, yt, vts, xh=(), yh=(), u=0, max_depth=-1, s=None, prefix=None):
     """
+    warning - may not terminate
     generates all substitutions s such that sub(xt,s) == sub(yt,s)
     xt, yt are token string tails, assumes standardized apart at top-level call
     vts are variable tokens
     _h are current substitution heads for current variables xt[0] and yt[0] (or () if non-variables)
     u is counter for fresh work variables
+    max_depth: limit to recursive calls to guard against non-termination (-1 means no limit)
     s is the substitution, built up during recursion
     prefix: None or "" in top-level call for verbosity
+    cf "word unification", Schulz 1991 "Word unification and transformation of generalized equations"
     """
 
     if s is None: s = {}
 
     # base case: both strings done, substitution works
-    if xt == yt == (): yield s   
+    if xt == yt == (): yield s, vts
 
     # base case: only one string done, failure
     if () in (xt, yt): return
+
+    # base case: max depth
+    if max_depth == 0: return
 
     if prefix is not None:
         ss = {k: ' '.join(v) for k,v in s.items()}
@@ -257,7 +272,7 @@ def unify_sequences(xt, yt, vts, xh=(), yh=(), u=0, s=None, prefix=None):
 
         # if same variable, no new substitution needed, advance both
         if xt[0] == yt[0]:
-            yield from unify_sequences(xt[1:], yt[1:], vts, (), (), u, s, prefix)
+            yield from unify_words(xt[1:], yt[1:], vts, (), (), u, max_depth-1, s, prefix)
 
         # otherwise introduce new variable for any overlap and advance in at least one sequence
         else:
@@ -268,40 +283,40 @@ def unify_sequences(xt, yt, vts, xh=(), yh=(), u=0, s=None, prefix=None):
             # advance in x, committing to substitution for xt[0]
             assert xt[0] not in xh + (v,) # occurs check?
             xs = {xt[0]: xh + (v,)}
-            # yield from unify_sequences(substitute(xt[1:], xs), substitute(yt, xs), vts | {v}, (), yh + (v,), u+1, compose(xs, s), prefix)
-            yield from unify_sequences(substitute(xt[1:], xs), substitute(yt, xs), vts | {v}, (), substitute(yh, xs) + (v,), u+1, compose(xs, s), prefix)
+            yield from unify_words(substitute(xt[1:], xs), substitute(yt, xs), vts | {v}, (), substitute(yh, xs) + (v,), u+1, max_depth-1, compose(xs, s), prefix)
 
             # advance in y, committing to substitution for yt[0]
             assert yt[0] not in yh + (v,) # occurs check?
             ys = {yt[0]: yh + (v,)}
-            # yield from unify_sequences(substitute(xt, ys), substitute(yt[1:], ys), vts | {v}, xh + (v,), (), u+1, compose(ys, s), prefix)
-            yield from unify_sequences(substitute(xt, ys), substitute(yt[1:], ys), vts | {v}, substitute(xh, ys) + (v,), (), u+1, compose(ys, s), prefix)
+            yield from unify_words(substitute(xt, ys), substitute(yt[1:], ys), vts | {v}, substitute(xh, ys) + (v,), (), u+1, max_depth-1, compose(ys, s), prefix)
 
             # advance in both, committing to both substitutions one at a time
             xys = compose(xs, ys) # need to compose since xt[0] might be in yh or vice versa
             if prefix is not None:
                 print(f"{prefix}both!")
                 print(prefix + str({a:' '.join(b) for a,b in xys.items()}))
-            yield from unify_sequences(substitute(xt[1:], xys), substitute(yt[1:], xys), vts | {v}, (), (), u+1, compose(xys, s), prefix)
+            yield from unify_words(substitute(xt[1:], xys), substitute(yt[1:], xys), vts | {v}, (), (), u+1, max_depth-1, compose(xys, s), prefix)
 
     # if only one is variable:
     elif xt[0] in vts:
 
         # only advance in y, extending current substitution for xt[0]
-        yield from unify_sequences(xt, yt[1:], vts, xh + yt[:1], (), u, s, prefix)
+        yield from unify_words(xt, yt[1:], vts, xh + yt[:1], (), u, max_depth-1, s, prefix)
 
         # advance in both, committing to substitution for xt[0]
         xs = {xt[0]: xh + yt[:1]}
-        yield from unify_sequences(substitute(xt[1:], xs), substitute(yt[1:], xs), vts, (), (), u, compose(xs, s), prefix)
+        assert xt[0] not in xh + yt[:1] # occurs check?
+        yield from unify_words(substitute(xt[1:], xs), substitute(yt[1:], xs), vts, (), (), u, max_depth-1, compose(xs, s), prefix)
 
     elif yt[0] in vts:
 
         # only advance in x, extending current substitution for yt[0]
-        yield from unify_sequences(xt[1:], yt, vts, (), yh + xt[:1], u, s, prefix)
+        yield from unify_words(xt[1:], yt, vts, (), yh + xt[:1], u, max_depth-1, s, prefix)
 
         # advance in both, committing to substitution for yt[0]
         ys = {yt[0]: yh + xt[:1]}
-        yield from unify_sequences(substitute(xt[1:], ys), substitute(yt[1:], ys), vts, (), (), u, compose(ys, s), prefix)
+        assert yt[0] not in yh + xt[:1] # occurs check?
+        yield from unify_words(substitute(xt[1:], ys), substitute(yt[1:], ys), vts, (), (), u, max_depth-1, compose(ys, s), prefix)
 
     # both constants:
     else:
@@ -310,7 +325,7 @@ def unify_sequences(xt, yt, vts, xh=(), yh=(), u=0, s=None, prefix=None):
         if xt[0] != yt[0]: return
 
         # otherwise, advance both
-        yield from unify_sequences(xt[1:], yt[1:], vts, (), (), u, s, prefix)
+        yield from unify_words(xt[1:], yt[1:], vts, (), (), u, max_depth-1, s, prefix)
 
 
 if __name__ == "__main__":
@@ -457,11 +472,12 @@ if __name__ == "__main__":
     assert ts == {"y": ("z",), "x": ("z",)}
 
     ## test unify sequences (assumes already standardized)
-    # unify_sequences(xt, yt, xv, yv, xh=(), yh=(), u=0, s=None):
+    # unify_words(xt, yt, xv, yv, xh=(), yh=(), u=0, s=None):
     x = Scheme("|- ph".split(), ("ph",))
     y = Scheme("|- ps".split(), ("ps",))
     print(f"unifying {' '.join(x.tokens)} with {' '.join(y.tokens)}:")
-    for s in unify_sequences(x.tokens, y.tokens, set(x.variables) | set(y.variables)):
+    # for s, _ in unify_words(x.tokens, y.tokens, set(x.variables) | set(y.variables)):
+    for s, _ in x.unifiers_with(y):
         print({k: " ".join(v) for k,v in s.items()})
         print(" ".join(x.substitute(s)))
         assert x.substitute(s) == y.substitute(s)
@@ -469,7 +485,7 @@ if __name__ == "__main__":
     x = Scheme("|- -. ph".split(), ("ph",))
     y = Scheme("|- ps".split(), ("ps",))
     print(f"unifying {' '.join(x.tokens)} with {' '.join(y.tokens)}:")
-    for s in unify_sequences(x.tokens, y.tokens, set(x.variables) | set(y.variables)):
+    for s, _ in x.unifiers_with(y):
         print({k: " ".join(v) for k,v in s.items()})
         print(" ".join(x.substitute(s)))
         assert x.substitute(s) == y.substitute(s)
@@ -477,7 +493,7 @@ if __name__ == "__main__":
     x = Scheme("|- ( ph -> ch )".split(), ("ph","ch"))
     y = Scheme("|- ps".split(), ("ps",))
     print(f"unifying {' '.join(x.tokens)} with {' '.join(y.tokens)}:")
-    for s in unify_sequences(x.tokens, y.tokens, set(x.variables) | set(y.variables)):
+    for s, _ in x.unifiers_with(y):
         print({k: " ".join(v) for k,v in s.items()})
         print(" ".join(x.substitute(s)))
         assert x.substitute(s) == y.substitute(s)
@@ -485,7 +501,7 @@ if __name__ == "__main__":
     x = Scheme("|- -. ph".split(), ("ph",))
     y = Scheme("|- ps -.".split(), ("ps",))
     print(f"unifying {' '.join(x.tokens)} with {' '.join(y.tokens)}:")
-    for s in unify_sequences(x.tokens, y.tokens, set(x.variables) | set(y.variables)):
+    for s, _ in x.unifiers_with(y):
         print({k: " ".join(v) for k,v in s.items()})
         print(" ".join(x.substitute(s)))
         assert x.substitute(s) == y.substitute(s)
@@ -493,7 +509,7 @@ if __name__ == "__main__":
     x = Scheme("ph -> ch".split(), ("ph","ch"))
     y = Scheme("ps -> ta".split(), ("ps","ta"))
     print(f"unifying {' '.join(x.tokens)} with {' '.join(y.tokens)}:")
-    for s in unify_sequences(x.tokens, y.tokens, set(x.variables) | set(y.variables)):
+    for s, _ in x.unifiers_with(y):
         print({k: " ".join(v) for k,v in s.items()})
         print(" ".join(x.substitute(s)))
         assert x.substitute(s) == y.substitute(s)
@@ -502,7 +518,7 @@ if __name__ == "__main__":
     x = Scheme("ph -> ph".split(), ("ph",))
     y = Scheme("ps -> ta".split(), ("ps","ta"))
     print(f"unifying {' '.join(x.tokens)} with {' '.join(y.tokens)}:")
-    for s in unify_sequences(x.tokens, y.tokens, set(x.variables) | set(y.variables), prefix=""):
+    for s, _ in x.unifiers_with(y):
         print({k: " ".join(v) for k,v in s.items()})
         print(" ".join(x.substitute(s)))
         print(" ".join(y.substitute(s)))
@@ -518,10 +534,48 @@ if __name__ == "__main__":
     y = Scheme("|- ( ch -> ta )".split(), ("ch","ta"))
     for x in xs:
         print(f"unifying {' '.join(x.tokens)}\nwith     {' '.join(y.tokens)}:")
-        for s in unify_sequences(x.tokens, y.tokens, set(x.variables) | set(y.variables)):
+        for s, _ in x.unifiers_with(y):
             s = {k: v for (k,v) in s.items() if k in set(x.variables) | set(y.variables)}
             print({k: " ".join(v) for k,v in s.items()})
             print(" ".join(x.substitute(s)))
             print(" ".join(y.substitute(s)))
             assert x.substitute(s) == y.substitute(s)
+
+    # non-terminating case? from schulz 1991
+    x = Scheme("x y x y".split(), ("x","y"))
+    # y = Scheme("a X Y X Y a".split(), ("X","Y"))
+    y = Scheme("a x y x y a".split(), ("x","y"))
+    print(x)
+    print(y)
+    print("\nnon-terminating?\n")
+    for i, s in enumerate(unify_words(x.tokens, y.tokens, set(x.variables) | set(y.variables), prefix="")):
+        # print(i,s)
+        print(i,x.substitute(s))
+    input("^^")
+
+    # what would modus ponens look like?
+    print("\n * mp * \n")
+    x = Scheme("|- ph".split(), ("ph",))
+    mj = Scheme("|- a -> b".split(), ("a","b"))
+    mn = Scheme("|- a".split(), ("a","b"))
+    y = Scheme("|- b".split(), ("a","b"))
+    z = Scheme("|- A -> ( B -> A )".split(), ("A", "B"))
+    for s, v in x.unifiers_with(y):
+        print(s)
+        mjs = mj.substitute(s)
+        mns = mn.substitute(s)
+        ys = y.substitute(s)
+        mjs = Scheme(mjs, v & set(mjs))
+        mns = Scheme(mns, v & set(mns))
+        ys = Scheme(ys, v & set(ys))
+        print("mj", mjs)
+        print("mn", mns)
+        print("y", ys)
+        for t, u in mj.unifiers_with(z):
+            print(mj)
+            print(mn)
+            print(y)
+            print(z)
+            print("", t, " ".join(z.substitute(t)))
+        # for t in unify_words(z, ... this already shows that substitute is not enough, the result should still be a scheme
 
