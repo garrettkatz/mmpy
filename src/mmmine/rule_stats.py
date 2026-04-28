@@ -53,3 +53,26 @@ if __name__ == "__main__":
     print(f"{len(workless_provable)} rules whose proofs only rely on workless rules")
 
 
+
+    # are all rules about typecodes are essential-less or at least work-less?
+    # check if all floating typecodes (all except |-) have only essentialess or work-less inference rules
+    # the answer is YES. only other typecodes are wff and class.  In both cases, all of their grammar rules are essentialless and workless.
+
+    print("loading all...")
+    db = ms.load_all()
+    print("counting...")
+    num_rules = {}
+    num_essless = {}
+    num_workless = {}
+    for rule in db.rules.values():
+        if rule.consequent.tag in ("$a", "$p"):
+            typecode = rule.consequent.tokens[0]
+            essentialless = (len(rule.essentials) == 0)
+            workless = (rule.mandatory <= set(rule.consequent.tokens))
+            num_rules[typecode] = num_rules.get(typecode, 0) + 1
+            num_essless[typecode] = num_essless.get(typecode, 0) + int(essentialless)
+            num_workless[typecode] = num_workless.get(typecode, 0) + int(workless)
+
+    for typecode in num_rules:
+        print(f"typecode {typecode}: {num_rules[typecode]} total, {num_essless[typecode]} essential-less, {num_workless[typecode]} workless")
+
