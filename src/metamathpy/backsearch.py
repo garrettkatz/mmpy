@@ -154,7 +154,7 @@ def backsearch(goal, rules, disjoint=None, pile=None, max_depth=-1, verbose=Fals
         else:
 
             # determine whether this rule introduces work variables
-            work_variables = tuple(rule.mandatory - set(rule.consequent.tokens))
+            work_variables = tuple(set(rule.mandatory.keys()) - set(rule.consequent.tokens))
             needs_work = (len(work_variables) > 0)
 
             # if so, standardize apart
@@ -261,7 +261,7 @@ def backsearch_trie(goal, rules, disjoint=None, pile_root=None, max_depth=-1, ve
         else:
 
             # determine whether this rule introduces work variables
-            work_variables = tuple(rule.mandatory - set(rule.consequent.tokens))
+            work_variables = tuple(set(rule.mandatory.keys()) - set(rule.consequent.tokens))
             needs_work = (len(work_variables) > 0)
 
             # if so, standardize apart

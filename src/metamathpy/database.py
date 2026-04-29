@@ -54,8 +54,9 @@ class Rule:
         self.variables = variables
     def finalize(self):
         # todo: also tuplify consequent tokens
+        self.consequent = Statement(self.consequent.label, self.consequent.tag, tuple(self.consequent.tokens), self.consequent.proof)
         self.hypotheses = self.floatings + self.essentials
-        self.mandatory = set([f.tokens[1] for f in self.floatings])
+        self.mandatory = {f.tokens[1]: f.tokens[0] for f in self.floatings} # varname: typecode
         self.scheme = Scheme(self.consequent.tokens, self.variables)
 
     def __str__(self):

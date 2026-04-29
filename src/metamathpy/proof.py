@@ -3,13 +3,24 @@ Run from top-level directory with
 $ python -m src.metamathpy.proof
 """
 import itertools as it
-from metamathpy.substitution import substitute
 
 try:
     profile
 except NameError:
     profile = lambda x: x
 
+def substitute(symbols, substitution):
+    """
+    direct substitution into symbol string
+    symbols[n]: nth token in symbol string
+    substitution[v]: symbol string to put in place of symbol v
+    returns result[n]: nth token after substitutions applied
+    """
+    result = ()
+    for symbol in symbols:
+        if symbol in substitution: result += substitution[symbol]
+        else: result += (symbol,)
+    return result
 
 class ProofStep:
     """
