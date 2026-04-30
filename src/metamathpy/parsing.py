@@ -114,34 +114,34 @@ def build_parse_trie(db, typecodes):
 
 def parse_rule(rule, rules, tokens, variables):
 
-    chunk = rule.scheme.chunks[0][1:]
-    i = len(chunk)
-    if chunk != tokens[:i]: return False, 0
+    # chunk = rule.scheme.chunks[0][1:]
+    # i = len(chunk)
+    # if chunk != tokens[:i]: return False, 0
 
-    for (v, chunk) in zip(rule.scheme.vartoks, rule.scheme.chunks[1:]):
-        result, length = parse(rules, tokens[i:], variables)
-        if not result: return False, 0
-        i += length
-        if chunk != tokens[i:i+len(chunk)]: return False, 0
-        i += len(chunk)
-
-    return True, i
-
-    # # keep around for prefix tree?
-    # i = 0
-    # for tok in rule.consequent.tokens[1:]:
-    #     if i >= len(tokens): return False, 0
-
-    #     if tok in rule.mandatory:
-    #         result, length = parse(rules, tokens[i:], variables)
-    #         if not result: return False, 0
-    #         i += length
-
-    #     elif tok != tokens[i]: return False, 0
-
-    #     else: i += 1
+    # for (v, chunk) in zip(rule.scheme.vartoks, rule.scheme.chunks[1:]):
+    #     result, length = parse(rules, tokens[i:], variables)
+    #     if not result: return False, 0
+    #     i += length
+    #     if chunk != tokens[i:i+len(chunk)]: return False, 0
+    #     i += len(chunk)
 
     # return True, i
+
+    # keep around for prefix tree?
+    i = 0
+    for tok in rule.consequent.tokens[1:]:
+        if i >= len(tokens): return False, 0
+
+        if tok in rule.mandatory:
+            result, length = parse(rules, tokens[i:], variables)
+            if not result: return False, 0
+            i += length
+
+        elif tok != tokens[i]: return False, 0
+
+        else: i += 1
+
+    return True, i
 
 def parse(rules, tokens, variables):
     if len(tokens) == 0: return False, 0

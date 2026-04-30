@@ -108,6 +108,35 @@ class Database:
         # print(constants)
         # with open(fname, "w") as f: f.write(s)
 
+    def rules_up_to(self, stop_label):
+        """
+        returns rules
+            rules[typecode]: list of rules up to but not including stop_label
+            rules["all"]: union over typecodes
+        """
+
+        rules = {"all": []}
+        for label, rule in self.rules.items():
+            if label == stop_label: break
+    
+            # special cases based on mm conventions
+            if label in ("idi", "a1ii"): continue # special rules only useful in mm proof assistants
+            if label in ("4syl","idALT"): continue # new usage is discouraged
+
+            # exclude essential hypothesis "rules"
+            if rule.consequent.tag not in ("$f", "$p", "$a"): continue
+
+            # initialize new typecodes
+            typecode = rule.consequent.tokens[0]
+            if typecode not in rules: rules[typecode] = []
+
+            # collect rule
+            rules[typecode].append(rule)
+            rules["all"].append(rule)
+    
+        return rules
+
+
 # @profile
 def parse(fpath, max_rules=-1, last_rule=""):
 
