@@ -1,10 +1,19 @@
 """
 spouts of and-or trees, some leafed on goal essentials and some rooted on goal consequents
 """
+class SpoutNode:
+    def __init__(self, tokens):
+        self.tokens = tokens
+
 class Spout:
-    def __init__(self, rules, claim):
-        self.rules = rules
+    def __init__(self, claim, parse_rules):
         self.claim = claim
+        self.parse_rules = parse_rules
+        self.nodes = []
+
+        # initialize nodes for each claim statement
+        for statement in claim.essentials + [claim.consequent]:
+            self.nodes.append(SpoutNode(statement.tokens))
 
     def contains_proof(self):
         return True
@@ -15,6 +24,26 @@ class Spout:
     def proof_size_lower_bound(self):
         return 0
 
+    def attachments(self, rule):
+
+        # find all unifications of each rule statement with spout nodes
+        statement_attachments = []
+        for statement in rule.essentials + [rule.consequent]:
+            statement_nodes = []
+            for node in self.nodes:
+                unified = unify(statement.tokens, node.tokens, rule.mandatory | node.variables, self.parse_rules)
+                if unified: statement_nodes.append(node)
+            statement_attachments.append(statement_nodes)
+
+        # yield each combination of one or more node attachments
+        N = len(statement_attachments)
+        for k in range(1,N+1):
+            for combo in it.combinations(range(N), k):
+                combo_nodes = [statement_attachments[c] for c in combo]
+                for nodes in it.product(combo_nodes):
+                    # yield the new spout with this attachment
+                    pass
+
     def plot(self):
         pass
         
@@ -22,20 +51,21 @@ class Spout:
 def spout_generator(rules, claim, proof_size_limit, spout=None):
 
     # initialize parent spout at top-level entry-point call
-    if spout is None: spout = Spout(rules, claim)
+    if spout is None:
+        parse_rules = rules["wff"] # todo: don't hardcode typecode
+        spout = Spout(claim, parse_rules)
 
     # if smallest possible proof size in spout is greater than limit: return
     if spout.proof_size_lower_bound() >= proof_size_limit: return
 
     # for each rule:
     for rule in rules:
-        # construct a new node for the rule
         # for every attachment (via unification) of one or more rule statements to some nodes in the spout so far
             # child spout = attachment of rule substitution to parent spout
             # yield from spout_generator(rules, claim, proof_size_limit, child spout)
         pass
 
-    # yield Spout(rules, claim)
+    # yield Spout(claim)
 
 def spout_prover(rules, claim, max_proof_size):
     print(f"proving {claim}")

@@ -152,6 +152,11 @@ def parse(rules, tokens, variables):
     return False, 0
 
 def unify(x, y, variables, rules):
+    """
+    x, y: token tuples to be unified, should be standardized apart
+    variables: set of variable tokens in x and y
+    rules: list of available parsing rules
+    """
     t = 0
     while t < len(x) and t < len(y):
         if x[t] in variables or y[t] in variables:
