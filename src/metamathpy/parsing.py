@@ -112,7 +112,7 @@ def build_parse_trie(db, typecodes):
             root.add(tokens, rule)
     return root
 
-def parse_rule(rule, rules, tokens, variables):
+def parse_rule(rule, rules, tokens, variables, sentinels):
 
     # chunk = rule.scheme.chunks[0][1:]
     # i = len(chunk)
@@ -129,11 +129,11 @@ def parse_rule(rule, rules, tokens, variables):
 
     # keep around for prefix tree?
     i = 0
-    for tok in rule.consequent.tokens[1:]:
+    for tok in rule.consequent.tokens[1:]: # omit typecode
         if i >= len(tokens): return False, 0
 
         if tok in rule.mandatory:
-            result, length = parse(rules, tokens[i:], variables)
+            result, length = parse(rules, tokens[i:], variables, sentinels)
             if not result: return False, 0
             i += length
 
@@ -143,42 +143,51 @@ def parse_rule(rule, rules, tokens, variables):
 
     return True, i
 
-def parse(rules, tokens, variables):
+def parse(rules, tokens, variables, sentinels):
     if len(tokens) == 0: return False, 0
-    if tokens[0] in variables: return True, 1
+    if tokens[0] in variables or tokens[0] in sentinels: return True, 1
     for rule in rules:
-        result, length = parse_rule(rule, rules, tokens, variables)
+        result, length = parse_rule(rule, rules, tokens, variables, sentinels)
         if result: return True, length
     return False, 0
 
-def unify(x, y, variables, rules):
+def unify(x, y, variables, sentinels, rules):
     """
     x, y: token tuples to be unified, should be standardized apart
     variables: set of variable tokens in x and y
+    sentinels: additional tokens like variables but substitutable (for original metavariables in claims being proved)
     rules: list of available parsing rules
+    returns success, subst
+        success: True if unification succeeds else False
+        subst: unifying substitution
     """
     t = 0
+    subst = {}
     while t < len(x) and t < len(y):
-        if x[t] in variables or y[t] in variables:
+        if x[t] == y[t]:
+            t += 1
+            continue
+        elif x[t] in variables or y[t] in variables:
             if x[t] in variables:
-                result, length = parse(rules, y[t:], variables)
+                result, length = parse(rules, y[t:], variables, sentinels)
                 replacement = y[t:t+length]
-                if x[t] in replacement: return False # occurs check
+                if x[t] in replacement: return False, None # occurs check
                 s = {x[t]: replacement}
             else:
-                result, length = parse(rules, x[t:], variables)
+                result, length = parse(rules, x[t:], variables, sentinels)
                 replacement = x[t:t+length]
-                if y[t] in replacement: return False # occurs check
+                if y[t] in replacement: return False, None # occurs check
                 s = {y[t]: replacement}
+            subst = mp.compose(s, subst)
             x = x[:t] + mp.substitute(x[t:], s)
             y = y[:t] + mp.substitute(y[t:], s)
             t += length
-        else:
-            if x[t] != y[t]: return False
-            t += 1
+        else: # x[t], y[t] distinct constants
+            return False, None
 
-    return t == len(x) == len(y)
-    # return True
+    if t == len(x) == len(y):
+        return True, subst
+    return False, None
 
 if __name__ == "__main__":
 
@@ -210,12 +219,13 @@ if __name__ == "__main__":
         #     else: print(f"{s}: True <= {rule.consequent.label}")
         # else: print(f"{s}: Fail")
         tokens = tuple(s.split())
-        result, length = parse(wff_rules, tokens[1:], v)
+        result, length = parse(wff_rules, tokens[1:], v, ())
         print(s, result)
         assert result == t
         if result: assert length == len(tokens)-1
 
-    pairs = [ # standardize apart
+    pairs = [ # generally assumes standardized apart
+        (("ph", "ph"), True), # though this should still work with empty substitution
         (("ph", "ps"), True),
         (("ph", "-. ps"), True),
         (("( ph -> ph )", "-. ps"), False),
@@ -226,7 +236,7 @@ if __name__ == "__main__":
     ]
 
     for p, t in pairs:
-        result = unify(tuple(p[0].split()), tuple(p[1].split()), ("ph","ps","ch","ta"), wff_rules)
-        print(p, result)
-        assert result == t
+        success, subst = unify(tuple(p[0].split()), tuple(p[1].split()), ("ph","ps","ch","ta"), (), wff_rules)
+        print(p, success, subst)
+        assert success == t
 

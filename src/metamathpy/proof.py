@@ -22,6 +22,18 @@ def substitute(symbols, substitution):
         else: result += (symbol,)
     return result
 
+def compose(t, s):
+    """
+    equivalent substitution to performing s followed by t
+    """
+    ts = {}
+    for k, v in s.items():
+        tv = substitute(v, t)
+        if tv[0] != k: ts[k] = tv
+    for k, v in t.items():
+        if k not in s: ts[k] = v
+    return ts
+
 class ProofStep:
     """
     Proof step: represents one step of a proof

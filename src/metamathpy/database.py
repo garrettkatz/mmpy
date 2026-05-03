@@ -53,8 +53,9 @@ class Rule:
         self.disjoint = disjoint
         self.variables = variables
     def finalize(self):
-        # todo: also tuplify consequent tokens
         self.consequent = Statement(self.consequent.label, self.consequent.tag, tuple(self.consequent.tokens), self.consequent.proof)
+        self.essentials = tuple(Statement(e.label, e.tag, tuple(e.tokens), e.proof) for e in self.essentials)
+        self.floatings = tuple(Statement(e.label, e.tag, tuple(e.tokens), e.proof) for e in self.floatings)
         self.hypotheses = self.floatings + self.essentials
         self.mandatory = {f.tokens[1]: f.tokens[0] for f in self.floatings} # varname: typecode
         self.scheme = Scheme(self.consequent.tokens, self.variables)
