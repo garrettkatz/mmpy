@@ -1,7 +1,13 @@
 """
 Routines for parsing logical formulae (not parsing a .mm database)
 """
-import metamathpy.proof as mp
+import src.metamathpy.database as md
+import src.metamathpy.proof as mp
+
+try:
+    profile
+except NameError:
+    profile = lambda x: x
 
 class ParseTrieNode:
     def __init__(self):
@@ -112,7 +118,12 @@ def build_parse_trie(db, typecodes):
             root.add(tokens, rule)
     return root
 
+@profile
 def parse_rule(rule, rules, tokens, variables, sentinels):
+    """
+    Determines if leading portion of tokens is parsable by particular rule as first argument
+    Other arguments and return values as in parse(...)
+    """
 
     # chunk = rule.scheme.chunks[0][1:]
     # i = len(chunk)
@@ -143,7 +154,17 @@ def parse_rule(rule, rules, tokens, variables, sentinels):
 
     return True, i
 
+@profile
 def parse(rules, tokens, variables, sentinels):
+    """
+    Determines if leading portion of tokens is parsable
+        rules: list of parsing rules
+        tokens: token sequence to parse
+        variables, sentinels: sets of tokens treated as parse leaves
+    returns (parsed, length) where
+        parsed: True if leading portion parsed successfully else False
+        length: length of parsed leading portion
+    """
     if len(tokens) == 0: return False, 0
     if tokens[0] in variables or tokens[0] in sentinels: return True, 1
     for rule in rules:
@@ -151,6 +172,63 @@ def parse(rules, tokens, variables, sentinels):
         if result: return True, length
     return False, 0
 
+def parse_proof(rules, tokens, variables, sentinels):
+    """
+    Like parse but returns a proof of parsability
+    Returns (step, length):
+        step is root of proof if successful, None otherwise
+        length is same as parse(...)
+    """
+    if len(tokens) == 0: return None, 0
+    if tokens[0] in variables or tokens[0] in sentinels:
+        conclusion = ("wff", tokens[0])
+        rule = md.Rule(md.Statement("w"+tokens[0], "$a", conclusion, ()), (), (), (), ())
+        rule.finalize()
+        step = mp.ProofStep(conclusion, rule)
+        return step, 1
+    for rule in rules:
+        step, length = parse_rule_proof(rule, rules, tokens, variables, sentinels)
+        if step is not None: return step, length
+    return None, 0
+
+def parse_rule_proof(rule, rules, tokens, variables, sentinels):
+    """
+    Like parse_rule but returns a proof of parsability
+    Returns (step, length):
+        step is root of proof if successful, None otherwise
+        length is same as parse_rule(...)
+    """
+    i = 0
+    substitution = {}
+    dependencies = {}
+    for tok in rule.consequent.tokens[1:]: # omit typecode
+        if i >= len(tokens): return None, 0
+
+        if tok in rule.mandatory:
+            # try parsing
+            step, length = parse_proof(rules, tokens[i:], variables, sentinels)
+            if step is None: return None, 0
+
+            # store dependency
+            idx = [f.tokens[1] for f in rule.floatings].index(tok)
+            dependencies[rule.floatings[idx].label] = step
+
+            # update substitution
+            if tok not in substitution:
+                substitution[tok] = tokens[i:i+length]
+            else: assert substitution[tok] == tokens[i:i+length]
+
+            i += length
+
+        elif tok != tokens[i]: return None, 0
+
+        else: i += 1
+
+    conclusion = ("wff",) + tokens[:i]
+    step = mp.ProofStep(conclusion, rule, dependencies, substitution)
+    return step, i
+
+@profile
 def unify(x, y, variables, sentinels, rules):
     """
     x, y: token tuples to be unified, should be standardized apart
@@ -223,6 +301,18 @@ if __name__ == "__main__":
         print(s, result)
         assert result == t
         if result: assert length == len(tokens)-1
+
+        step, length = parse_proof(wff_rules, tokens[1:], v, ())
+        assert result == (step is not None)
+        # if result:
+        #     print(step.tree_string())
+        #     input('.')
+
+    # try with a sentinel
+    step, length = parse_proof(wff_rules, tuple("( ph -> st )".split()), set(["ph"]), set(["st"]))
+    assert step is not None
+    print(step.tree_string())
+    input('.')
 
     pairs = [ # generally assumes standardized apart
         (("ph", "ph"), True), # though this should still work with empty substitution

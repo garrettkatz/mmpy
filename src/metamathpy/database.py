@@ -5,7 +5,7 @@ $ python -m src.database
 from collections import namedtuple
 import itertools as it
 
-from metamathpy.substitution import Scheme
+from src.metamathpy.substitution import Scheme, substitute
 
 try:
     profile
@@ -55,7 +55,7 @@ class Rule:
     def finalize(self):
         self.consequent = Statement(self.consequent.label, self.consequent.tag, tuple(self.consequent.tokens), self.consequent.proof)
         self.essentials = tuple(Statement(e.label, e.tag, tuple(e.tokens), e.proof) for e in self.essentials)
-        self.floatings = tuple(Statement(e.label, e.tag, tuple(e.tokens), e.proof) for e in self.floatings)
+        self.floatings = tuple(Statement(f.label, f.tag, tuple(f.tokens), f.proof) for f in self.floatings)
         self.hypotheses = self.floatings + self.essentials
         self.mandatory = {f.tokens[1]: f.tokens[0] for f in self.floatings} # varname: typecode
         self.scheme = Scheme(self.consequent.tokens, self.variables)
@@ -67,6 +67,21 @@ class Rule:
         for hypothesis in self.hypotheses:
             s += f"  {hypothesis.label} {hypothesis.tag} {' '.join(hypothesis.tokens)} $.\n"
         return s
+
+    def rename(self, name_map):
+        """
+        return copy of self with variables renamed
+        name_map[v] = new variable name for v
+        """
+        substitution = {v: (u,) for (v,u) in name_map.items()}
+        rule = Rule(
+            consequent=Statement(self.consequent.label, self.consequent.tag, substitute(self.consequent.tokens, substitution), self.consequent.proof),
+            essentials=[Statement(e.label, e.tag, substitute(e.tokens, substitution), e.proof) for e in self.essentials],
+            floatings=[Statement(f.label, f.tag, substitute(f.tokens, substitution), f.proof) for f in self.floatings],
+            disjoint=set((name_map[u], name_map[v]) for (u,v) in self.disjoint),
+            variables=set(name_map.get(v, v) for v in self.variables))
+        rule.finalize()
+        return rule
 
     def mm(self, prefix=""):
         essentials = [

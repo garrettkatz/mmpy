@@ -30,7 +30,6 @@ def compose(t, s):
         if k not in s: ts[k] = v
     return ts
 
-@profile
 def match_helper(vartoks, chunks, tokens, substitution):
     """
     recursive helper for Scheme.matches
@@ -61,7 +60,6 @@ def match_helper(vartoks, chunks, tokens, substitution):
                 # recurse on the remaining tails with the new substitution
                 yield from match_helper(vartoks[1:], chunks[1:], tokens[t+n:], next_sub)
 
-@profile
 def pile_match_helper(vartoks, chunks, node, varfix, substitution):
     """
     recursive helper for Scheme.matches
@@ -135,7 +133,6 @@ class Scheme:
             result = result + insertion + chunk
         return result           
 
-    @profile
     def matches(self, tokens):
         """
         Generator that yields all substitutions which match this scheme with the given token sequence
@@ -151,7 +148,6 @@ class Scheme:
         # otherwise initiate recursive helper on remainder
         yield from match_helper(self.vartoks, self.chunks[1:], tokens[len(self.chunks[0]):], {})
 
-    @profile
     def pile_matches(self, root):
         """
         Generator that yields all (sub, step) pairs such that self.substitute(sub) matches step in pile
@@ -189,7 +185,6 @@ def standardize(schemes, base="v", start=0):
         standardized.append(Scheme(tokens, variables))
     return standardized, standardizer
 
-@profile
 def multibinder(schemes, pile):
     # yield every substitution s such that all(scheme.sub(s) in pile.keys for scheme in schemes)
     # also yields the corresponding steps in the pile
@@ -214,7 +209,6 @@ def multibinder(schemes, pile):
             for sub_bindings, steps in multibinder(sub_schemes, pile):
                 yield (bindings | sub_bindings), ((step,) + steps)
 
-@profile
 def pilebinder(schemes, pile_trie_root):
     # like multibinder but with a pile trie data structure
 
@@ -236,7 +230,6 @@ def pilebinder(schemes, pile_trie_root):
         for sub_bindings, steps in pilebinder(sub_schemes, pile_trie_root):
             yield (bindings | sub_bindings), ((step,) + steps)
 
-@profile
 def unify_words(xt, yt, vts, xh=(), yh=(), u=0, max_depth=-1, s=None, prefix=None):
     """
     warning - may not terminate
