@@ -172,9 +172,10 @@ def parse(rules, tokens, variables, sentinels):
         if result: return True, length
     return False, 0
 
-def parse_proof(rules, tokens, variables, sentinels):
+def parse_proof(rules, tokens, variables, sentinels, steps):
     """
     Like parse but returns a proof of parsability
+    steps = {conc: step...} is a dictionary of already proven steps to avoid redundancy, initialize to {} before top-level call
     Returns (step, length):
         step is root of proof if successful, None otherwise
         length is same as parse(...)
@@ -182,18 +183,22 @@ def parse_proof(rules, tokens, variables, sentinels):
     if len(tokens) == 0: return None, 0
     if tokens[0] in variables or tokens[0] in sentinels:
         conclusion = ("wff", tokens[0])
-        rule = md.Rule(md.Statement("w"+tokens[0], "$a", conclusion, ()), (), (), (), ())
-        rule.finalize()
-        step = mp.ProofStep(conclusion, rule)
-        return step, 1
+        if conclusion not in steps:
+            rule = md.Rule(md.Statement("w"+tokens[0], "$a", conclusion, ()), (), (), (), ())
+            rule.finalize()
+            steps[conclusion] = mp.ProofStep(conclusion, rule)
+        return steps[conclusion], 1
     for rule in rules:
-        step, length = parse_rule_proof(rule, rules, tokens, variables, sentinels)
-        if step is not None: return step, length
+        step, length = parse_rule_proof(rule, rules, tokens, variables, sentinels, steps)
+        if step is not None:
+            steps[step.conclusion] = step
+            return step, length
     return None, 0
 
-def parse_rule_proof(rule, rules, tokens, variables, sentinels):
+def parse_rule_proof(rule, rules, tokens, variables, sentinels, steps):
     """
     Like parse_rule but returns a proof of parsability
+    steps as in parse_proof
     Returns (step, length):
         step is root of proof if successful, None otherwise
         length is same as parse_rule(...)
@@ -206,7 +211,7 @@ def parse_rule_proof(rule, rules, tokens, variables, sentinels):
 
         if tok in rule.mandatory:
             # try parsing
-            step, length = parse_proof(rules, tokens[i:], variables, sentinels)
+            step, length = parse_proof(rules, tokens[i:], variables, sentinels, steps)
             if step is None: return None, 0
 
             # store dependency

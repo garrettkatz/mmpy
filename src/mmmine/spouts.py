@@ -50,7 +50,6 @@ def eager_bind(X, Y, floor, variables, sentinels, parse_rules, subst=None, idx=N
 
     # recursive case: leave X[0] unbound, floor does not change
     yield from eager_bind(X[1:], Y, floor, variables, sentinels, parse_rules, subst, idx+(None,))
-    
 
 def multibind(X, Y, variables, sentinels, parse_rules, subst=None):
     """
@@ -154,7 +153,7 @@ class Spout:
         variables = set([substitution[v] for v in self.variables])
         return Spout(self.claim, self.rules, nodes, order, variables, self.sentinels)
 
-    def proof_check(self, conclusion=None):
+    def proof_check(self, conclusion=None, steps=None):
         """
         conclusion is an intermediate token tuple to be proved (defaults to claim consequent)
         returns (success, proof) where
@@ -162,26 +161,83 @@ class Spout:
             proof is a contained proof if success else None
         """
 
-        # top-level call: set node to claim consequent
-        if conclusion is None: conclusion = self.claim.consequent.tokens
-        # print("proof check on " + " ".join(conclusion))
-        step = self.nodes[conclusion]
+        # top-level call: set node to claim consequent and init steps (avoid in-place)
+        if conclusion is None:
+            conclusion = self.claim.consequent.tokens
+            steps = {} # steps[conclusion] = step
 
-        # base case: fail if unjustified
-        if step is None: return False, None
+        # base case: already proven
+        if conclusion in steps: return True, steps[conclusion]
+
+        # base case: unjustified
+        spout_step = self.nodes[conclusion]
+        if spout_step is None: return False, None
 
         # recursive case: check if all dependencies justified
         dependencies = {} # replace dependency tokens by proof steps
-        for h, d in self.nodes[conclusion].dependencies.items():
-            # some shared dependencies may already be converted
-            if not isinstance(d, mp.ProofStep):
-                success, d_step = self.proof_check(d)
-                if not success: return False, None
-                dependencies[h] = d_step
+        for h, d in spout_step.dependencies.items():
+            success, d_step = self.proof_check(d, steps)
+            if not success: return False, None
+            dependencies[h] = d_step
 
         # if this line reached, all dependencies satisfied
-        step.dependencies = dependencies
+        step = mp.ProofStep(conclusion, spout_step.rule, dependencies, spout_step.substitution, spout_step.disjoint)
+        steps[conclusion] = step
         return True, step
+
+    def bindings_with(self, rule, variables, node_budget):
+        """
+        Generates all statement subset bindings of rule with self's nodes
+        Handles consequent separately then calls eager_bind on hypotheses
+        """
+
+        X = [rule.consequent.tokens[1:]] + [e.tokens[1:] for e in rule.essentials]
+        floor = len(X) - node_budget
+
+        # abort if impossible to reach floor
+        if len(X) < floor: return
+
+        # first try all bindings including conclusion statement
+        for i, (n_c, step) in enumerate(self.nodes.items()):
+
+            # skip already-justified nodes
+            if step is not None: continue
+
+            # try unifying consequent
+            success, s0 = unify(X[0], n_c[1:], variables, self.sentinels, self.rules["wff"])
+            if not success: continue
+
+            # set up order-respecting nodes for hypotheses eager bind
+            N_d, reindex = [], {}
+            for (j, n_d) in enumerate(self.nodes.keys()):
+                if j == i: continue
+                if (n_c, n_d) in self.order: continue
+                N_d.append(n_d[1:])
+                reindex[len(reindex)] = j
+
+            # apply substitution for hypotheses eager bind
+            sX = [mp.substitute(x, s0) for x in X[1:]]
+            sN_d = [mp.substitute(n_d, s0) for n_d in N_d]
+            
+            # entry to hypotheses eager bind
+            for (s, _, idx) in eager_bind(sX, sN_d, floor-1, variables, self.sentinels, self.rules["wff"], s0, ()):
+                # remap idx to full node set and yield
+                idx = (i,) + tuple(reindex.get(j, None) for j in idx)
+                uN = [mp.substitute(n[1:], s) for n in self.nodes.keys()]
+                yield s, uN, idx
+
+        # only try omitting conclusion if floor allows it
+        if len(X) == floor: return
+
+        # try all nodes except claim consequent as dependencies
+        N_d = [n[1:] for n in self.nodes.keys() if n != self.claim.consequent.tokens]
+        # floor unchanged since X[0] unbound
+        for (s, _, idx) in eager_bind(X[1:], N_d, floor, variables, self.sentinels, self.rules["wff"]):
+            # remap idx to full node set and yield
+            idx = (None,) + tuple((None if j is None else j+1) for j in idx) # +1 for omitted claim consequent node
+            uN = [mp.substitute(n[1:], s) for n in self.nodes.keys()]
+            yield s, uN, idx
+
 
     @profile
     def expansions_with(self, rule, node_budget):
@@ -202,11 +258,12 @@ class Spout:
         # unify rule statements with as many existing nodes as possible
         X = [rule.consequent.tokens[1:]] + [e.tokens[1:] for e in rule.essentials]
         N = [n[1:] for n in self.nodes.keys()]
-        floor = len(X) - node_budget # come from budget
-        for (subst, uN, idx) in eager_bind(X, N, floor, variables, self.sentinels, self.rules["wff"]):
+        floor = len(X) - node_budget
+        # for (subst, uN, idx) in eager_bind(X, N, floor, variables, self.sentinels, self.rules["wff"]):
 
-            # filter out unifications with already-justified conclusions
-            if idx[0] is not None and self.nodes[("|-",)+N[idx[0]]] is not None: continue
+        #     # filter out unifications with already-justified conclusions
+        #     if idx[0] is not None and self.nodes[("|-",)+N[idx[0]]] is not None: continue
+        for (subst, uN, idx) in self.bindings_with(rule, variables, node_budget):
 
             # apply substitutions
             sX = [mp.substitute(x, subst) for x in X]
@@ -280,9 +337,8 @@ class Spout:
     def dfs(self, step_cap):
         # base case: steps reached
         num_steps = len([n for (n,s) in self.nodes.items() if s is not None])
-        if num_steps >= step_cap:
-            yield self
-            return
+        if num_steps == step_cap: yield self
+        if num_steps >= step_cap: return
 
         node_budget = step_cap - num_steps
         for expansion in self.expansions(node_budget):
@@ -291,19 +347,55 @@ class Spout:
     def plot(self):
         pass
 
-    def complete_floating(self, step):
+    def complete_floating(self, step, steps=None):
         """
         Recursively complete sub-proofs of floating dependencies, assumes essentials are all satisfied
         step: root of proof to complete, done in-place
         """
+        if steps is None: steps = {}
         # complete dependencies
-        for h, d in step.dependencies.items(): self.complete_floating(d)
+        for h, d in step.dependencies.items(): self.complete_floating(d, steps)
         # complete step
         for f in step.rule.floatings:
             v = f.tokens[1]
             wff = step.substitution[v]
-            proof, _ = parse_proof(self.rules["wff"], wff, self.variables, self.sentinels)
+            proof, _ = parse_proof(self.rules["wff"], wff, self.variables, self.sentinels, steps)
             step.dependencies[f.label] = proof
+
+    def revert_metavariables(self, claim, proof):
+        """
+        Reverts work variables in proof to canonical metavariable names matching original claim
+        proof is root step of proof, assumes floatings were already completed
+        proof steps are modified in-place
+        todo: handle proof step substitutions correctly
+        """
+        substitution = {} # replaces working variables with original metavariables
+        # rename sentinels
+        for (a, b) in zip((claim.consequent,)+claim.essentials, (self.claim.consequent,)+self.claim.essentials):
+            for (ta, tb) in zip(a.tokens, b.tokens):
+                if tb in self.sentinels: substitution[tb] = (ta,)
+        # collect available metavariables not used for sentinels
+        metavariables = list(claim.variables - set([v[0] for v in substitution.values()]))
+        # rename work variables that made it into proof step conclusions
+        workvariables = set()
+        for step in proof.all_steps():
+            workvariables |= set(step.conclusion) & self.variables
+        for v in workvariables:
+            substitution[v] = (metavariables[0],)
+            metavariables = metavariables[1:]
+        # apply substitution to proof
+        for step in proof.all_steps():
+            step.conclusion = mp.substitute(step.conclusion, substitution)
+            if step.rule.consequent.label[:3] == "wmv":
+                v = step.rule.consequent.label[1:]
+                mv = substitution[v][0]
+                step.rule = md.Rule(md.Statement("w"+mv, "$a", ("wff", mv), ()), (), (), (), ())
+                step.rule.finalize()
+            step.substitution = {k: mp.substitute(v, substitution) for (k,v) in step.substitution.items()}
+            step.disjoint = set([(substitution[u][0], substitution[v][0]) for (u,v) in step.disjoint]) # todo: is this right?
+            # print(proof.tree_string())
+            # input('.')
+
 
 @profile
 def spout_prover(claim, rules, max_proof_size):
@@ -331,7 +423,11 @@ def spout_prover(claim, rules, max_proof_size):
             # check for proof
             success, root_step = spout.proof_check()
             if success:
+                print()
+                print(spout)
+                print()
                 spout.complete_floating(root_step)
+                spout.revert_metavariables(claim, root_step)
                 print(f"at success {num_spouts=}")
                 return root_step
 
@@ -461,7 +557,7 @@ if __name__ == "__main__":
     from time import perf_counter
     import pickle as pk
 
-    goal_labels = ["mpisyl"]
+    goal_labels = ["peirceroll"]
     # goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p"]
     goal_times = []
     goal_proofs = []
@@ -478,23 +574,38 @@ if __name__ == "__main__":
 
         # verify proof
         if proof_root is not None:
-
+            # print(proof_root.tree_string())
+            
             old_root, _ = mp.verify_compressed_proof(db, claim)
-            old_proof = old_root.normal_proof()
-            new_proof = proof_root.normal_proof()
+            old_normal_proof = old_root.normal_proof()
+            new_normal_proof = proof_root.normal_proof()
 
-            # claim = db.rules[goal_label]
+            new_size = len([s for s in proof_root.all_steps() if s.conclusion[0] == "|-"])
+            old_size = len([s for s in old_root.all_steps() if s.conclusion[0] == "|-"])
+            # new_size = len(proof_root.all_steps())
+            # old_size = len(old_root.all_steps())
+
             # old_root, _ = mp.verify_compressed_proof(db, claim)
-            # old_proof = old_root.normal_proof()
-            # claim.consequent = md.Statement(claim.consequent.label, claim.consequent.tag, claim.consequent.tokens, proof)
-            # mp.verify_normal_proof(db, claim) # raises assertion error if unverified
-            # print("Verified!")
-            print("old proof: " + " ".join(old_proof))
-            print("new proof: " + " ".join(new_proof))
+            # old_normal_proof = old_root.normal_proof()
+            claim.consequent = md.Statement(claim.consequent.label, claim.consequent.tag, claim.consequent.tokens, new_normal_proof)
+            mp.verify_normal_proof(db, claim) # raises assertion error if unverified
+            print("Verified!")
+            print(f"old proof ({old_size} steps): " + " ".join(old_normal_proof))
+            if new_size > old_size:
+                print(old_root.tree_string())
+            print(f"new proof ({new_size} steps): " + " ".join(new_normal_proof))
+            if new_size > old_size:
+                print(proof_root.tree_string())
             print(f"total time: {total_time:.3f}s")
+            if new_size < old_size:
+                print("You found one!!!")
+                input('__')
+            if new_size > old_size:
+                print("Something wrong with iterative largening...")
+                input('.')
 
             goal_times.append(total_time)
-            goal_proofs.append(new_proof)
+            goal_proofs.append(new_normal_proof)
             with open("spout_results.pkl", "wb") as f:
                 pk.dump((goal_labels[:len(goal_times)], goal_times, goal_proofs), f)
 

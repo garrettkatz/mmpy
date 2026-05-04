@@ -70,12 +70,15 @@ class ProofStep:
         return ts
 
     # recursively collect all proof steps along the way to this one
-    def all_steps(self, explored = None):
+    def all_steps(self, explored = None, check_redundancy=False):
 
         # skip duplicated steps
-        if explored == None: explored = set()
-        if self.conclusion in explored: return []
-        explored.add(self.conclusion)
+        if explored == None: explored = {}
+        if self.conclusion in explored:
+            if check_redundancy:
+                assert self == explored[self.conclusion], "redundant proof steps"
+            return []
+        explored[self.conclusion] = self
 
         steps = [self]
         for dep in self.dependencies.values():
@@ -95,6 +98,7 @@ class ProofStep:
 
         # return proof
         return self._normal_proof
+
 
 def disjoint_variable_check(rule, substitution):
     """
