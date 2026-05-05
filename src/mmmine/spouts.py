@@ -3,6 +3,7 @@ spouts of and-or trees, some leafed on goal essentials and some rooted on goal c
 sparse matrix representation?
 """
 import itertools as it
+import numpy as np
 import src.metamathpy.database as md
 import src.metamathpy.proof as mp
 from src.metamathpy.parsing import unify, parse_proof
@@ -13,13 +14,14 @@ except NameError:
     profile = lambda x: x
 
 @profile
-def eager_bind(X, Y, floor, variables, sentinels, parse_rules, subst=None, idx=None):
+def eager_bind(X, Y, floor, variables, sentinels, parse_rules, subst=None, idx=None, sx0=None):
     """
     Generates unifications of subsets of X with subsets of Y
     Only yields unifications of >= floor elements of X
     variables, sentinels, parse_rules as in unify
     subst: substitution built up during recursion
-    uX: unifications with X build up during recursion
+    idx: built up during recursion
+    sx0: substituted rule conclusion; should not appear in sX[1:] tail
     yields (subst, uY, idx)
         subst: unifying substitution
         uY: unifier applied to each element of Y
@@ -43,13 +45,20 @@ def eager_bind(X, Y, floor, variables, sentinels, parse_rules, subst=None, idx=N
         success, s = unify(X[0], y, variables, sentinels, parse_rules)
         if not success: continue
         # apply substitution for remaining elements
-        sX = [mp.substitute(x, s) for x in X[1:]]
+        sX = [mp.substitute(x, s) for x in X]
         sY = [mp.substitute(y, s) for y in Y]
+        # # skip on conclusion circularity
+        ssx0 = None
+        if sx0 is not None:
+            ssx0 = mp.substitute(sx0, s)
+            if ssx0 in sX: continue
         # try unifying remaining elements
-        yield from eager_bind(sX, sY, floor-1, variables, sentinels, parse_rules, mp.compose(s, subst), idx+(n,))
+        yield from eager_bind(sX[1:], sY, floor-1, variables, sentinels, parse_rules, mp.compose(s, subst), idx+(n,), ssx0)
 
     # recursive case: leave X[0] unbound, floor does not change
-    yield from eager_bind(X[1:], Y, floor, variables, sentinels, parse_rules, subst, idx+(None,))
+    # but if unbound X[0] is already in Y this will be redundant
+    if X[0] not in Y:
+        yield from eager_bind(X[1:], Y, floor, variables, sentinels, parse_rules, subst, idx+(None,), sx0)
 
 def multibind(X, Y, variables, sentinels, parse_rules, subst=None):
     """
@@ -150,7 +159,7 @@ class Spout:
                     disjoint=None) # todo: disjoints
             nodes[conclusion] = step
         order = {(mp.substitute(a, substitution), mp.substitute(b, substitution)) for (a,b) in self.order}
-        variables = set([substitution[v] for v in self.variables])
+        variables = set([substitution[v][0] for v in self.variables])
         return Spout(self.claim, self.rules, nodes, order, variables, self.sentinels)
 
     def proof_check(self, conclusion=None, steps=None):
@@ -216,11 +225,11 @@ class Spout:
                 reindex[len(reindex)] = j
 
             # apply substitution for hypotheses eager bind
-            sX = [mp.substitute(x, s0) for x in X[1:]]
+            sX = [mp.substitute(x, s0) for x in X]
             sN_d = [mp.substitute(n_d, s0) for n_d in N_d]
             
             # entry to hypotheses eager bind
-            for (s, _, idx) in eager_bind(sX, sN_d, floor-1, variables, self.sentinels, self.rules["wff"], s0, ()):
+            for (s, _, idx) in eager_bind(sX[1:], sN_d, floor-1, variables, self.sentinels, self.rules["wff"], s0, (), sX[0]):
                 # remap idx to full node set and yield
                 idx = (i,) + tuple(reindex.get(j, None) for j in idx)
                 uN = [mp.substitute(n[1:], s) for n in self.nodes.keys()]
@@ -295,12 +304,19 @@ class Spout:
                         disjoint=None) # todo: disjoints
                 nodes[conclusion] = step
 
+            # what if some nodes merged? skip now but deal with it later
+            # assert len(nodes) == len(self.nodes)
+            if len(nodes) < len(self.nodes.items()): continue
+
             # add any new nodes
             for (i, tsx) in zip(idx, tsX):
                 if i is None: nodes[tsx] = None
 
             # build new step
             dependencies = {e.label: tsx for (e, tsx) in zip(rule.essentials, tsX[1:])}
+            # # it's possible some rule variables did not need to be bound, add them to the substitution
+            # for v in rule.mandatory.keys():
+            #     if v not in subst: subst[v] = (v,)
             step = mp.ProofStep(tsX[0], rule, dependencies, subst) # todo: disjoint requirements
             nodes[tsX[0]] = step
 
@@ -334,11 +350,48 @@ class Spout:
         for rule in self.rules["|-"]:
             yield from self.expansions_with(rule, node_budget)
 
+    @profile
     def dfs(self, step_cap):
         # base case: steps reached
         num_steps = len([n for (n,s) in self.nodes.items() if s is not None])
         if num_steps == step_cap: yield self
         if num_steps >= step_cap: return
+
+        # base case: bidirectionality constraints violated
+        # any unjustified node should have maximum backward depth at most ceil(step_cap/2)
+        # any unused node should have maximum forward depth at most ceil(step_cap/2)
+        node_index = {conc: i for (i,conc) in enumerate(self.nodes.keys())}
+        unjustified = np.array([step is None for step in self.nodes.values()])
+        unused = np.ones(len(node_index), dtype=bool)
+        for i, step in enumerate(self.nodes.values()):
+            if step is None: continue
+            for n_d in step.dependencies.values():
+                j = node_index[n_d]
+                unused[j] = False
+
+        forward = np.zeros(len(node_index))
+        while True:
+            new_forward = forward.copy()
+            for i, step in enumerate(self.nodes.values()):
+                if step is None: continue
+                for n_d in step.dependencies.values():
+                    j = node_index[n_d]
+                    new_forward[i] = max(new_forward[i], forward[j]+1)
+            if (new_forward == forward).all(): break
+            forward = new_forward
+        backward = np.zeros(len(node_index))
+        while True:
+            new_backward = backward.copy()
+            for i, step in enumerate(self.nodes.values()):
+                if step is None: continue
+                for n_d in step.dependencies.values():
+                    j = node_index[n_d]
+                    new_backward[j] = max(new_backward[j], backward[i]+1)
+            if (new_backward == backward).all(): break
+            backward = new_backward
+
+        if (unjustified & (backward >= np.ceil(step_cap/2))).any(): return
+        if (unused & (forward >= np.ceil(step_cap/2))).any(): return
 
         node_budget = step_cap - num_steps
         for expansion in self.expansions(node_budget):
@@ -358,7 +411,8 @@ class Spout:
         # complete step
         for f in step.rule.floatings:
             v = f.tokens[1]
-            wff = step.substitution[v]
+            # wff = step.substitution[v]
+            wff = step.substitution.get(v, (v,)) # some wvs dont make it into substitution
             proof, _ = parse_proof(self.rules["wff"], wff, self.variables, self.sentinels, steps)
             step.dependencies[f.label] = proof
 
@@ -386,7 +440,8 @@ class Spout:
         # apply substitution to proof
         for step in proof.all_steps():
             step.conclusion = mp.substitute(step.conclusion, substitution)
-            if step.rule.consequent.label[:3] == "wmv":
+            # if step.rule.consequent.label[:3] == "wmv":
+            if step.rule.consequent.label[:3] in ("wmv", "wwv"): # some work variables can become dummy metavariables
                 v = step.rule.consequent.label[1:]
                 mv = substitution[v][0]
                 step.rule = md.Rule(md.Statement("w"+mv, "$a", ("wff", mv), ()), (), (), (), ())
@@ -558,7 +613,8 @@ if __name__ == "__main__":
     import pickle as pk
 
     goal_labels = ["peirceroll"]
-    # goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p"]
+    # goal_labels = ["mpisyl"]
+    # goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p" and "ALT" not in rule.consequent.label]
     goal_times = []
     goal_proofs = []
     for gl, goal_label in enumerate(goal_labels):
@@ -568,6 +624,9 @@ if __name__ == "__main__":
 
         claim = db.rules[goal_label]
         rules = db.rules_up_to(goal_label)
+        # if "|-" in rules:
+        #     # rules["|-"] = [db.rules[rl] for rl in ("imim1","id","syl9r")] # peirceroll oracle
+        #     rules["|-"] = [r for r in rules["|-"] if r.consequent.label in claim.consequent.proof] # oracle premise selection, just for sanity checking
         proof_root = spout_prover(claim, rules, max_proof_size=10)
 
         total_time = perf_counter()-start_time
@@ -604,6 +663,7 @@ if __name__ == "__main__":
                 print("Something wrong with iterative largening...")
                 input('.')
 
+            # input('.')
             goal_times.append(total_time)
             goal_proofs.append(new_normal_proof)
             with open("spout_results.pkl", "wb") as f:
