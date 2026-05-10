@@ -115,8 +115,46 @@ def build_parse_trie(db, typecodes):
         if rule.consequent.tag != "$a": continue
         tokens = rule.consequent.tokens
         if tokens[0] in typecodes:
-            root.add(tokens, rule)
+            root.add(tokens[1:], rule)
     return root
+
+@profile
+def trie_parse(root, node, tokens, singletons, prefix=None):
+    """
+    root: root of parse trie
+    node: current position in parse trie, initialize to root
+    tokens: token sequence to parse
+    singletons: tokens to be parsed as length-1 formulae
+    """
+
+    # success if leaf node has been reached
+    if node.rule is not None: return True, 0
+
+    # otherwise, failure if tokens have been exhausted
+    elif len(tokens) == 0: return False, 0
+
+    # if top-level call (node is root) and next token is a singleton, success
+    if node is root and tokens[0] in singletons: return True, 1
+
+    # if next token is a valid constant, recurse on tail
+    if tokens[0] in node.constant_children:
+        result, length = trie_parse(root, node.constant_children[tokens[0]], tokens[1:], singletons, prefix)
+        return result, length + 1
+
+    # otherwise, failure if no variables at this position in trie
+    if len(node.variable_children) == 0: return False, 0
+
+    # at this point are at a variable, parse leading sub-formula for its substitution
+    var_result, var_length = trie_parse(root, root, tokens, singletons, prefix)
+    if not var_result: return False, 0
+
+    # recurse on tail after leading sub-formula
+    for (typecode, child) in node.variable_children.values():
+        result, length = trie_parse(root, child, tokens[var_length:], singletons, prefix)
+        if result: return True, var_length + length
+
+    # no ways left to parse
+    return False, 0
 
 @profile
 def parse_rule(rule, rules, tokens, variables, sentinels):
@@ -238,7 +276,7 @@ def unify(x, y, variables, sentinels, rules):
     """
     x, y: token tuples to be unified, should be standardized apart
     variables: set of variable tokens in x and y
-    sentinels: additional tokens like variables but substitutable (for original metavariables in claims being proved)
+    sentinels: additional tokens like variables but not substitutable (for original metavariables in claims being proved)
     rules: list of available parsing rules
     returns success, subst
         success: True if unification succeeds else False
@@ -249,7 +287,7 @@ def unify(x, y, variables, sentinels, rules):
     while t < len(x) and t < len(y):
         if x[t] == y[t]:
             t += 1
-            continue
+
         elif x[t] in variables or y[t] in variables:
             if x[t] in variables:
                 result, length = parse(rules, y[t:], variables, sentinels)
@@ -265,11 +303,53 @@ def unify(x, y, variables, sentinels, rules):
             x = x[:t] + mp.substitute(x[t:], s)
             y = y[:t] + mp.substitute(y[t:], s)
             t += length
+
         else: # x[t], y[t] distinct constants
             return False, None
 
-    if t == len(x) == len(y):
-        return True, subst
+    if t == len(x) == len(y): return True, subst
+
+    return False, None
+
+@profile
+def unify_trie(x, y, variables, sentinels, root):
+    """
+    x, y: token tuples to be unified, should be standardized apart
+    variables: set of variable tokens in x and y
+    sentinels: additional tokens like variables but not substitutable (for original metavariables in claims being proved)
+    root: root of parse trie
+    returns success, subst
+        success: True if unification succeeds else False
+        subst: unifying substitution if success else None
+    """
+    singletons = variables | sentinels
+    t = 0
+    subst = {}
+    while t < len(x) and t < len(y):
+        if x[t] == y[t]:
+            t += 1
+
+        elif x[t] in variables or y[t] in variables:
+            if x[t] in variables:
+                result, length = trie_parse(root, root, y[t:], singletons)
+                replacement = y[t:t+length]
+                if x[t] in replacement: return False, None # occurs check
+                s = {x[t]: replacement}
+            else:
+                result, length = trie_parse(root, root, x[t:], singletons)
+                replacement = x[t:t+length]
+                if y[t] in replacement: return False, None # occurs check
+                s = {y[t]: replacement}
+            subst = mp.compose(s, subst)
+            x = x[:t] + mp.substitute(x[t:], s)
+            y = y[:t] + mp.substitute(y[t:], s)
+            t += length
+
+        else: # x[t], y[t] distinct constants
+            return False, None
+
+    if t == len(x) == len(y): return True, subst
+
     return False, None
 
 if __name__ == "__main__":
@@ -277,8 +357,9 @@ if __name__ == "__main__":
     import metamathpy.setmm as ms
 
     db = ms.load_pl()
-    # root = build_parse_trie(db, ("wff","class"))
-    # print(root.tree_string())
+    root = build_parse_trie(db, ("wff","class"))
+    print(root.tree_string())
+    # input('.')
 
     wff_rules = [rule for rule in db.rules.values() if rule.consequent.tag == "$a" and rule.consequent.tokens[0] in ("wff", "class")]
 
@@ -295,29 +376,36 @@ if __name__ == "__main__":
         ("wff ( ph -> ps -> ph )", set(["ph","ps"]), False),
         ("wff ( ( ph -> ps )", set(["ph","ps"]), False),
     ]
-    for s, v, t in tests:
-        # result, rule = root.prove(tuple(s.split()), v)
-        # if result:
-        #     if rule is None: print(f"{s}: True <= $f")
-        #     else: print(f"{s}: True <= {rule.consequent.label}")
-        # else: print(f"{s}: Fail")
-        tokens = tuple(s.split())
-        result, length = parse(wff_rules, tokens[1:], v, ())
-        print(s, result)
-        assert result == t
-        if result: assert length == len(tokens)-1
-
-        step, length = parse_proof(wff_rules, tokens[1:], v, ())
-        assert result == (step is not None)
-        # if result:
-        #     print(step.tree_string())
-        #     input('.')
+    for _ in range(1): # 100 for timing
+        for s, v, t in tests:
+            # result, rule = root.prove(tuple(s.split()), v)
+            # if result:
+            #     if rule is None: print(f"{s}: True <= $f")
+            #     else: print(f"{s}: True <= {rule.consequent.label}")
+            # else: print(f"{s}: Fail")
+            tokens = tuple(s.split())
+            result, length = parse(wff_rules, tokens[1:], v, ())
+            print(s, result, length)
+    
+            # print("trie parse:")
+            # tresult, tlength = trie_parse(root, root, tokens[1:], v, "")
+            tresult, tlength = trie_parse(root, root, tokens[1:], v)
+            print(tresult, tlength)
+    
+            assert result == tresult == t
+            if result: assert length == tlength == len(tokens)-1
+    
+            step, length = parse_proof(wff_rules, tokens[1:], v, (), {})
+            assert result == (step is not None)
+            # if result:
+            #     print(step.tree_string())
+            #     input('.')
 
     # try with a sentinel
-    step, length = parse_proof(wff_rules, tuple("( ph -> st )".split()), set(["ph"]), set(["st"]))
+    step, length = parse_proof(wff_rules, tuple("( ph -> st )".split()), set(["ph"]), set(["st"]), {})
     assert step is not None
     print(step.tree_string())
-    input('.')
+    # input('.')
 
     pairs = [ # generally assumes standardized apart
         (("ph", "ph"), True), # though this should still work with empty substitution
@@ -330,8 +418,10 @@ if __name__ == "__main__":
         (("( ph -> ta )", "( ps -> ( ch -> ps )"), False),
     ]
 
-    for p, t in pairs:
-        success, subst = unify(tuple(p[0].split()), tuple(p[1].split()), ("ph","ps","ch","ta"), (), wff_rules)
-        print(p, success, subst)
-        assert success == t
+    for _ in range(100):
+        for p, t in pairs:
+            success, subst = unify(tuple(p[0].split()), tuple(p[1].split()), ("ph","ps","ch","ta"), (), wff_rules)
+            tsuccess, tsubst = unify_trie(tuple(p[0].split()), tuple(p[1].split()), set(["ph","ps","ch","ta"]), set(), root)
+            print(p, success, subst)
+            assert success == tsuccess == t
 
