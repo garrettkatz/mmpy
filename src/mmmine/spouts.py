@@ -6,7 +6,7 @@ import itertools as it
 import numpy as np
 import src.metamathpy.database as md
 import src.metamathpy.proof as mp
-from src.metamathpy.parsing import unify, parse_proof
+from src.metamathpy.parsing import unify, parse_proof, unify_trie, build_parse_trie
 
 try:
     profile
@@ -42,7 +42,8 @@ def eager_bind(X, Y, floor, variables, sentinels, parse_rules, subst=None, idx=N
     # recursive case: unifying next element of X with each of Y
     for n,y in enumerate(Y):
         # try unifying X[0] with y
-        success, s = unify(X[0], y, variables, sentinels, parse_rules)
+        # success, s = unify(X[0], y, variables, sentinels, parse_rules)
+        success, s = unify_trie(X[0], y, variables, sentinels, parse_rules)
         if not success: continue
         # apply substitution for remaining elements
         sX = [mp.substitute(x, s) for x in X]
@@ -80,13 +81,14 @@ def multibind(X, Y, variables, sentinels, parse_rules, subst=None):
     x0 = mp.substitute(X[0], subst)
     for y in Y:
         y = mp.substitute(y, subst)
-        success, s = unify(x0, y, variables, sentinels, parse_rules)
+        # success, s = unify(x0, y, variables, sentinels, parse_rules)
+        success, s = unify_trie(x0, y, variables, sentinels, parse_rules)
         if not success: continue
         for (new_subst, ys) in multibind(X[1:], Y, variables, sentinels, parse_rules, mp.compose(s, subst)):
             yield new_subst, (y,) + ys
 
 class Spout:
-    def __init__(self, claim, rules, nodes=None, order=None, variables=None, sentinels=None):
+    def __init__(self, claim, rules, parse_root, nodes=None, order=None, variables=None, sentinels=None):
         """
         nodes[conclusion] = step justifying conclusion | None if not yet justified
         values of step.dependencies are other node conclusions rather than other proof steps
@@ -95,6 +97,7 @@ class Spout:
         """
         self.claim = claim
         self.rules = rules
+        self.parse_root = parse_root
 
         if nodes is None:
             # substitute claim variables with sentinels (should not be specialized during the proof)
@@ -160,7 +163,7 @@ class Spout:
             nodes[conclusion] = step
         order = {(mp.substitute(a, substitution), mp.substitute(b, substitution)) for (a,b) in self.order}
         variables = set([substitution[v][0] for v in self.variables])
-        return Spout(self.claim, self.rules, nodes, order, variables, self.sentinels)
+        return Spout(self.claim, self.rules, self.parse_root, nodes, order, variables, self.sentinels)
 
     def proof_check(self, conclusion=None, steps=None):
         """
@@ -213,7 +216,8 @@ class Spout:
             if step is not None: continue
 
             # try unifying consequent
-            success, s0 = unify(X[0], n_c[1:], variables, self.sentinels, self.rules["wff"])
+            # success, s0 = unify(X[0], n_c[1:], variables, self.sentinels, self.rules["wff"])
+            success, s0 = unify_trie(X[0], n_c[1:], variables, self.sentinels, self.parse_root)
             if not success: continue
 
             # set up order-respecting nodes for hypotheses eager bind
@@ -229,7 +233,8 @@ class Spout:
             sN_d = [mp.substitute(n_d, s0) for n_d in N_d]
             
             # entry to hypotheses eager bind
-            for (s, _, idx) in eager_bind(sX[1:], sN_d, floor-1, variables, self.sentinels, self.rules["wff"], s0, (), sX[0]):
+            # for (s, _, idx) in eager_bind(sX[1:], sN_d, floor-1, variables, self.sentinels, self.rules["wff"], s0, (), sX[0]):
+            for (s, _, idx) in eager_bind(sX[1:], sN_d, floor-1, variables, self.sentinels, self.parse_root, s0, (), sX[0]):
                 # remap idx to full node set and yield
                 idx = (i,) + tuple(reindex.get(j, None) for j in idx)
                 uN = [mp.substitute(n[1:], s) for n in self.nodes.keys()]
@@ -241,7 +246,8 @@ class Spout:
         # try all nodes except claim consequent as dependencies
         N_d = [n[1:] for n in self.nodes.keys() if n != self.claim.consequent.tokens]
         # floor unchanged since X[0] unbound
-        for (s, _, idx) in eager_bind(X[1:], N_d, floor, variables, self.sentinels, self.rules["wff"]):
+        # for (s, _, idx) in eager_bind(X[1:], N_d, floor, variables, self.sentinels, self.rules["wff"]):
+        for (s, _, idx) in eager_bind(X[1:], N_d, floor, variables, self.sentinels, self.parse_root):
             # remap idx to full node set and yield
             idx = (None,) + tuple((None if j is None else j+1) for j in idx) # +1 for omitted claim consequent node
             uN = [mp.substitute(n[1:], s) for n in self.nodes.keys()]
@@ -340,7 +346,7 @@ class Spout:
             if circ: continue
 
             # yield expansion
-            yield Spout(self.claim, self.rules, nodes, order, variables, self.sentinels)
+            yield Spout(self.claim, self.rules, self.parse_root, nodes, order, variables, self.sentinels)
 
     def expansions(self, node_budget):
         """
@@ -453,7 +459,7 @@ class Spout:
 
 
 @profile
-def spout_prover(claim, rules, max_proof_size):
+def spout_prover(claim, rules, parse_root, max_proof_size):
     # a "search step" is adding a new node with either essential hypotheses or consequents that unify with one or more existing nodes
     # order all possible search steps so that smaller proofs are guaranteed identified before larger ones
     # bonus: "heuristic" which orders search steps so that proofs, if they exist, are identified sooner in the total search step order.
@@ -461,7 +467,7 @@ def spout_prover(claim, rules, max_proof_size):
     print(f"proving {claim}")
 
     # initialize spout
-    seed = Spout(claim, rules)
+    seed = Spout(claim, rules, parse_root)
 
     # iteratively deepen expansions, starting from nodes in original claim
     for proof_size_limit in range(len(seed.nodes), max_proof_size+1):
@@ -499,6 +505,7 @@ if __name__ == "__main__":
     import src.metamathpy.setmm as ms
     db = ms.load_pl()
     parse_rules = [rule for rule in db.rules.values() if rule.consequent.tag == "$a" and rule.consequent.tokens[0] in ("wff", "class")]
+    parse_root = build_parse_trie(db, ("wff",))
 
     ## multibinder
     test_cases = [ # X, Y, variables, num binders
@@ -512,7 +519,7 @@ if __name__ == "__main__":
         Y = [tuple(y.split()) for y in Y]
         print(X, Y, V, C)
         count = 0
-        for s, ys in multibind(X, Y, V, (), parse_rules):
+        for s, ys in multibind(X, Y, set(V), set(), parse_root):
             print("", s, [" ".join(y) for y in ys])
             count += 1
         assert count == C
@@ -525,7 +532,8 @@ if __name__ == "__main__":
         print(X, Y, V, C)
         count = 0
         floor = len(X) # bind all
-        for s, uY, idx in eager_bind(X, Y, floor, V, (), parse_rules):
+        # for s, uY, idx in eager_bind(X, Y, floor, V, (), parse_rules):
+        for s, uY, idx in eager_bind(X, Y, floor, set(V), set(), parse_root):
             print("", s, [" ".join(y) for y in Y])
             count += 1
             assert idx.count(None) == 0
@@ -539,7 +547,8 @@ if __name__ == "__main__":
         Y = [tuple(y.split()) for y in Y]
         print(X, Y, V, C)
         floor = len(X) - 1 # at most one unbound
-        for s, uY, idx in eager_bind(X, Y, floor, V, (), parse_rules):
+        # for s, uY, idx in eager_bind(X, Y, floor, V, (), parse_rules):
+        for s, uY, idx in eager_bind(X, Y, floor, set(V), set(), parse_root):
             unbound = idx.count(None)
             print(f"{unbound=}", s, [" ".join(mp.substitute(x, s)) for x in X], [None if i is None else " ".join(uY[i]) for i in idx])
             assert len(X) - unbound >= floor
@@ -550,7 +559,7 @@ if __name__ == "__main__":
     # proof check
     claim = db.rules["ax-mp"]
     rules = db.rules_up_to("ax-1")
-    spout = Spout(claim, rules)
+    spout = Spout(claim, rules, parse_root)
     print(spout)
     result, _ = spout.proof_check()
     assert not result
@@ -570,7 +579,7 @@ if __name__ == "__main__":
     ## expansions with
     claim = db.rules["ax-mp"]
     rules = db.rules_up_to("ax-1")
-    spout = Spout(claim, rules)
+    spout = Spout(claim, rules, parse_root)
     for e, expansion in enumerate(spout.expansions_with(db.rules['ax-mp'], node_budget=0)):
         print(f"\n\n expansion {e} \n\n")
         print(expansion)
@@ -578,7 +587,7 @@ if __name__ == "__main__":
 
     claim = db.rules["mp2"]
     rules = db.rules_up_to("mp2")
-    spout = Spout(claim, rules)
+    spout = Spout(claim, rules, parse_root)
     print(f"\n\nexpansions of {spout}\n")
     for e, expansion in enumerate(spout.expansions_with(db.rules['ax-mp'], node_budget=1)):
         print(f"\n expansion {e} \n")
@@ -594,7 +603,7 @@ if __name__ == "__main__":
                 print(proof_root.tree_string())
                 # input('!')
 
-    proof_root = spout_prover(claim, rules, max_proof_size=5)
+    proof_root = spout_prover(claim, rules, parse_root, max_proof_size=5)
     assert proof_root is not None
     print("spout prover proof:")
     print(proof_root.tree_string())
@@ -627,7 +636,7 @@ if __name__ == "__main__":
         # if "|-" in rules:
         #     # rules["|-"] = [db.rules[rl] for rl in ("imim1","id","syl9r")] # peirceroll oracle
         #     rules["|-"] = [r for r in rules["|-"] if r.consequent.label in claim.consequent.proof] # oracle premise selection, just for sanity checking
-        proof_root = spout_prover(claim, rules, max_proof_size=10)
+        proof_root = spout_prover(claim, rules, parse_root, max_proof_size=10)
 
         total_time = perf_counter()-start_time
 
