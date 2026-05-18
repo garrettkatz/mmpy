@@ -3,6 +3,7 @@ Routines for parsing logical formulae (not parsing a .mm database)
 """
 import src.metamathpy.database as md
 import src.metamathpy.proof as mp
+import src.metamathpy.terms as mt
 
 try:
     profile
@@ -210,6 +211,7 @@ def parse(rules, tokens, variables, sentinels):
         if result: return True, length
     return False, 0
 
+
 def parse_proof(rules, tokens, variables, sentinels, steps):
     """
     Like parse but returns a proof of parsability
@@ -270,6 +272,68 @@ def parse_rule_proof(rule, rules, tokens, variables, sentinels, steps):
     conclusion = ("wff",) + tokens[:i]
     step = mp.ProofStep(conclusion, rule, dependencies, substitution)
     return step, i
+
+def parse_term(rules, tokens, variables, sentinels, terms=None):
+    """
+    Like parse but returns a term
+    terms = {conc: term...} is a dictionary of already parsed terms to avoid redundancy, initialized to {} before top-level call
+    Returns (term, length):
+        term is parsed term if successful, None otherwise
+        length is same as parse(...)
+    """
+    if len(tokens) == 0: return None, 0
+    if terms is None: terms = {}
+    if tokens[0] in variables or tokens[0] in sentinels:
+        key = tokens[:1]
+        if key not in terms:
+            terms[key] = mt.Term(key)
+        return terms[key], 1
+    for rule in rules:
+        term, length = parse_rule_term(rule, rules, tokens, variables, sentinels, terms)
+        if term is not None:
+            terms[tokens[:length]] = term
+            return term, length
+    return None, 0
+
+def parse_rule_term(rule, rules, tokens, variables, sentinels, terms):
+    """
+    Like parse_rule but returns a parsed term
+    terms as in parse_term
+    Returns (term, length):
+        term is parsed term if successful, None otherwise
+        length is same as parse_rule(...)
+    """
+    i = 0
+    substitution = {}
+    dependencies = {}
+    for tok in rule.consequent.tokens[1:]: # omit typecode
+        if i >= len(tokens): return None, 0
+
+        if tok in rule.mandatory:
+            # try parsing
+            term, length = parse_term(rules, tokens[i:], variables, sentinels, terms)
+            if term is None: return None, 0
+
+            # store dependency
+            idx = [f.tokens[1] for f in rule.floatings].index(tok)
+            dependencies[rule.floatings[idx].label] = term
+
+            # update substitution
+            if tok not in substitution:
+                substitution[tok] = term
+            else: assert substitution[tok] == term
+
+            i += length
+
+        elif tok != tokens[i]: return None, 0
+
+        else: i += 1
+
+    term = mt.Term(tokens[:i], dependencies/substitution need to be incorporated here).
+    you can maybe have Term.init_from(...) helpers for leaves and roots; and then use Term.substitute to insert dependencies into top-level term.
+    # conclusion = ("wff",) + tokens[:i]
+    # step = mp.ProofStep(conclusion, rule, dependencies, substitution)
+    return term, i
 
 @profile
 def unify(x, y, variables, sentinels, rules):
