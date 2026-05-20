@@ -1,47 +1,21 @@
+"""
+Term representation is np.stack([types, values], dtype=int)
+types are one of (RULE, POINTER, VARIABLE, SENTINEL)
+data is not necessarily contiguous but it is monotonic (all subterms are later in the data array)
+"""
+you STILL have problems here. the potential for shared subterms complications substitution a lot? at least if you unify recursively.
+
+something like this? shared variable table, so substition is just one pointer update.  a traversal iterator with a stack that walks current term top-level wff rule, and pushes current term when it hits a bound variable, dereferencing its pointer. each new term has standardized variables at each level to avoid clobbering. unification walks both iterators and updates free variable bindings on demand (iterator needs to dereference when advancing *past* a variable to reflect any on-demand changes just made). need a "trail" of most recent variables that were bound, so they can be undone when unification fails. this might cover everything except occurs-checking. occurs-checking has to be done like so: if checking whether to bind x in X to subterm of Y, continue walking the whole subterm checking for x until subterm is completely walked; only then do the binding (or fail). so the iterator has to expose its stack to some degree to check for subterms complete. the traversal iterator should still use operator form (dont re-traverse multiple occurrances of same subterm in token sequence).
+
+seems like enough overhead to not be worth the single pointer update. maybe the issue is just the parsing? try to drive this top-down from unifor.
+
+how bad would it be to store all the subterm lengths and just update all of them that span the substitution with a numpy few-liner?
+
 import numpy as np
 np.seterr(over='raise') # for variable index proliferation
 
 # types for term elements
 RULE, POINTER, VARIABLE, SENTINEL = range(4)
-
-class Term:
-    def __init__(self, data):
-        """
-        data = np.stack([types, values])
-        """
-        self.data = data
-
-    def __repr__(self):
-        return f"Term(\n{self.data})"
-
-    def __eq__(self, other):
-        return np.array_equal(self.data, other.data)
-
-    def substitute(self, substitution):
-        """
-        substitution = {variable_index: term, ...}
-        """    
-    
-        top_data = self.data.copy()
-        all_data = [top_data]
-        offset = self.data.shape[1]
-        var_mask = (self.data[0] == VARIABLE)
-        for (v, t) in substitution.items():
-
-            idx = var_mask & (self.data[1] == v)
-
-            if t.data[0, 0] in (VARIABLE, SENTINEL):
-                top_data[0, idx] = t.data[0, 0]
-                top_data[1, idx] = t.data[1, 0]
-            else:
-                top_data[0, idx] = POINTER
-                top_data[1, idx] = offset
-
-                all_data.append(t.data)
-                offset += t.data.shape[1]
-
-        return Term(np.concatenate(all_data, axis=1))
-
 
 class TermManager:
     def __init__(self, rules):
@@ -57,31 +31,54 @@ class TermManager:
         data[:, 0] = (RULE, rule_index)
         data[0,1:] = VARIABLE
         data[1,1:] = range(arity)
-        return Term(data)
+        return data
 
     def variable_term(self, variable_index):
-        return Term(np.array([[VARIABLE, variable_index]]).T)
+        return np.array([[VARIABLE, variable_index]]).T
 
     def sentinel_term(self, sentinel_index):
-        return Term(np.array([[SENTINEL, sentinel_index]]).T)
+        return np.array([[SENTINEL, sentinel_index]]).T
 
-    def serialize_helper(self, data):
-        if data[0,0] == VARIABLE: return (f"v{data[1,0]}",)
-        if data[0,0] == SENTINEL: return (f"s{data[1,0]}",)
+    def substitute(self, term, substitution):
+        """
+        term: data array
+        substitution = {variable_index: replacement term, ...}
+        """    
+    
+        top = term.copy()
+        term_list = [top]
+        offset = term.shape[1]
+        var_mask = (term[0] == VARIABLE)
+        for (v, subterm) in substitution.items():
 
-        rule = self.rules[data[1,0]]
-        substitution = {}
-        for f, floating in enumerate(rule.floatings):
-            if data[0, 1+f] == POINTER:
-                arg_data = data[:, data[1, 1+f]:]
+            idx = var_mask & (term[1] == v)
+
+            if subterm[0, 0] in (VARIABLE, SENTINEL):
+                top[0, idx] = subterm[0, 0]
+                top[1, idx] = subterm[1, 0]
             else:
-                arg_data = data[:, 1+f:]
-            substitution[floating.tokens[1]] = self.serialize_helper(arg_data)
+                top[0, idx] = POINTER
+                top[1, idx] = offset
 
-        return rule.scheme.substitute(substitution)[1:] # omit typecode
+                term_list.append(subterm)
+                offset += subterm.shape[1]
+
+        return np.concatenate(term_list, axis=1)
 
     def serialize(self, term):
-        return self.serialize_helper(term.data)
+        if term[0,0] == VARIABLE: return (f"v{term[1,0]}",)
+        if term[0,0] == SENTINEL: return (f"s{term[1,0]}",)
+
+        rule = self.rules[term[1,0]]
+        substitution = {}
+        for f, floating in enumerate(rule.floatings):
+            if term[0, 1+f] == POINTER:
+                subterm = term[:, term[1, 1+f]:]
+            else:
+                subterm = term[:, 1+f:]
+            substitution[floating.tokens[1]] = self.serialize(subterm)
+
+        return rule.scheme.substitute(substitution)[1:] # omit typecode
 
     def parse(self, tokens, variables, sentinels, terms=None):
         """
@@ -134,36 +131,31 @@ class TermManager:
     
             else: i += 1
 
-        term = self.compound_term(rule_index).substitute(substitution)
+        term = self.substitute(self.compound_term(rule_index), substitution)
         return term, i
 
-    def unify_helper(self, d1, d2):
+    def unify(self, d1, d2):
         if VARIABLE in (d1[0,0], d2[0,0]):
-            if d1[0,0] == VARIABLE:
-                n = 1
-                if d2[0,0] == RULE:
-                    this is problematic... need to know the full length of a term's data, not just its top level'
-                    probably fixed with a third array row of lengths?
-                    n = self.arities[d2[1,0]]+1
-                return True, {d1[1,0]: d2[:,:n]}
+            if d1[0,0] != VARIABLE: d1, d2 = d2, d1
+            if (d1[:,:1] == d2).all(axis=0).any(): return False, {} # occurs check
+            return True, {d1[1,0]: d2}
         else:
-            if d1[0,0] != d2[0,0]: return False, {}
-            if d1[1,0] != d2[1,0]: return False, {}
+            if (d1[0,0] != d2[0,0]) or (d1[1,0] != d2[1,0]): return False, {}
             if d1[0,0] == d2[0,0] == SENTINEL: return True, {}
             
             arity = self.arities[d1[1,0]]
             for a in range(arity):
-                if d1[
+                sd1, sd2 = d1[:,1+a:], d2[:,1+a:]
+                if d1[0,1+a] == POINTER: sd1 = d1[:,d1[1,1+a]:]
+                if d2[0,1+a] == POINTER: sd2 = d2[:,d2[1,1+a]:]
+
+                success, subst = self.unify_helper(sd1, sd2)
+                if not success: return False, {}
+
+                d1
                 you have to apply substitutions here to subterms
 
         return False, {}
-
-    def unify(self, t1, t2):
-        success, substitution = self.unify_helper(t1.data, t2.data)
-        if success:
-            substitution = {v: Term(t) for (v,t) in substitution.items()}
-        return success, substitution
-
 
 if __name__ == "__main__":
 
@@ -174,9 +166,6 @@ if __name__ == "__main__":
 
     for r, rule in enumerate(tm.rules): print(r); print(rule)
 
-    # t = Term(np.array([[1,2],[3,3]]))
-    # print(t)
-
     s = tm.sentinel_term(0)
     t = tm.variable_term(0)
     print(s)
@@ -184,17 +173,15 @@ if __name__ == "__main__":
     print(t)
     print(" ".join(tm.serialize(t)))
     
-    # t2 = tm.rule_term(1, [s, t])
-    # print(t2)
     t2 = tm.compound_term(1)
     print(t2)
     print(" ".join(tm.serialize(t2)))
 
-    t3 = t2.substitute({0: s, 1: t})
+    t3 = tm.substitute(t2, {0: s, 1: t})
     print(t3)
     print(" ".join(tm.serialize(t3)))
 
-    t4 = t2.substitute({0: t3, 1: t2})
+    t4 = tm.substitute(t2, {0: t3, 1: t2})
     print(t4)
     print(" ".join(tm.serialize(t4)))
 

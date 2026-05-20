@@ -72,7 +72,8 @@ class SearchNode:
     
         if step_index == len(self.partial_proof.assertions):
             yield self
-    
+
+        here consider prioritizing rules with 1+ essentials and unifying with most recent assertions first, to avoid repeating the same reasoning multiple times    
         for rule in self.rules["|-"]:
             for partial_proof in self.applications_of(rule, step_index):
                 child = SearchNode(self.db, self.claim, self.rules, partial_proof)
