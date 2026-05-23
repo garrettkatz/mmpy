@@ -1,175 +1,241 @@
 """
-term is represented as np.stack([ints, lens]) where
+term is represented as np.stack([ints, lens]).T where
     ints[i] is integer id of token at position i
     lens[i] is length of subterm starting at position i
 """
-tempted to transpose term representation
 import numpy as np
 np.seterr(over='raise') # for variable index proliferation
 
-def substitute(self, term, substitution):
+def substitute(term, substitution):
     """
     direct substitution into symbol string
     substitution = {int id: replacement term, ...}
     returns new term
     """
+
     # update lengths
     term = term.copy()
-    start = np.arange(term.shape[1])
-    stop = start + term[1,:]
-    for i in range(term.shape[1]):
-        if term[0,i] in substitution:
-            bump = substitution[term[0,i]].shape[1]
+    start = np.arange(len(term))
+    stop = start + term[:,1]
+    for i in range(len(term)):
+        if term[i,0] in substitution:
+            bump = len(substitution[term[i,0]]) - 1 # -1 for singleton term being replaced
             inscope = (start <= i) & (i < stop)
-            term[1,inscope] += bump
+            term[inscope,1] += bump
 
-    # insert substitutions
+    # insert replacements
     sterm = []
-    for i in range(term.shape[1]):
-        t = substitution.get(term[0,i], term[:,i:i+1])
+    for i in range(len(term)):
+        t = substitution.get(term[i,0], term[i:i+1])
         sterm.append(t)
-    return np.concatenate(sterm, axis=0).T
+    return np.concatenate(sterm, axis=0)
 
-def compose(t, s):
+def compose(s2, s1):
     """
-    equivalent substitution to performing s followed by t
+    equivalent substitution to performing s1 followed by s2
     """
-    ts = {}
-    for k, v in s.items():
-        tv = substitute(v, t)
-        if tv[0] != k: ts[k] = tv
-    for k, v in t.items():
-        if k not in s: ts[k] = v
-    return ts
+    s21 = {}
+    for k, v in s1.items():
+        t = substitute(v, s2)
+        if t[0,0] != k: s21[k] = t
+    for k, v in s2.items():
+        if k not in s1: s21[k] = v
+    return s21
 
 class TermManager:
-    def __init__(self, rules, tokens):
+    def __init__(self, rules):
         """
         rules: list of wff rules (rule index is its id)
-        tokens: list of possible tokens
         """
         self.rules = rules
-        self.encoder = {t:i for (i,t) in enumerate(tokens)}
-        self.decoder = {i:t for (i,t) in enumerate(tokens)}
+        self.encoder = {}
+        self.decoder = {}
+
+        for rule in self.rules:
+            for token in rule.consequent.tokens[1:]:
+                self.encode(token)
+
+    def encode(self, token):
+        if token not in self.encoder:
+            n = len(self.encoder)
+            self.encoder[token] = n
+            self.decoder[n] = token
+        return self.encoder[token]
+
+    def decode(self, i):
+        return self.decoder.get(i, f"t{i}")
 
     def serialize(self, term):
-        return tuple(self.decoder.get(i, f"v{i}") for i in term[0])
+        return tuple(map(self.decode, term[:,0]))
 
-    def parse(self, tokens, variables, sentinels):
-        """
-        Determines if leading portion of tokens is parsable
-            rules: list of parsing rules
-            tokens: token sequence to parse
-            variables, sentinels: sequences of tokens treated as parse leaves
-        assumes all tokens already in encoders and decoders
-        returns parsed term or None if parse fails
-        """
-        if len(tokens) == 0: return None
+    def token_term(self, token):
+        return np.array([[self.encode(token), 1]])
 
-        if tokens[0] in variables or tokens[0] in sentinels:
-            return np.array([[self.encoder[tokens[0]], 1]]).T
-
-        for rule_index in range(len(self.rules)):
-            term = self.parse_rule(rule_index, tokens, variables, sentinels)
-            if term is not None: return term
-
-        return None
-
-    def parse_rule(self, rule_index, tokens, variables, sentinels):
-        i = 0
-        rule = self.rules[rule_index]
-        mandatory = tuple(f.tokens[1] for f in rule.floatings)
-        substitution = {}
-        for tok in rule.consequent.tokens[1:]: # omit typecode
-            if i >= len(tokens): return None, 0
-    
-            if tok in mandatory:
-                # try parsing
-                term = self.parse(tokens[i:], variables, sentinels)
-                if term is None: return None
-    
-                # update substitution
-                v = self.encoder[tok]
-                if v not in substitution: substitution[v] = term
-                else: assert np.array_equal(substitution[v], term)
-    
-                i += length
-    
-            elif tok != tokens[i]: return None
-    
-            else: i += 1
-
-        term = np.stack([
-            self.encoder[t] for t in rule.consequent.tokens[1:],
-            np.ones(len(rule.consequent.tokens[1:]))])
-        term[1,0] = term.shape[1]
-        term = substitute(term, substitution)
+    def rule_term(self, rule_index):
+        rule_tokens = self.rules[rule_index].consequent.tokens[1:] # omit typecode
+        term = np.array([[self.encode(token), 1] for token in rule_tokens])
+        term[0,1] = len(term)
         return term
 
+    def parse(self, tokens, sentinels):
+        """
+        Determines if leading portion of tokens is parsable
+            tokens: token sequence to parse
+            sentinels: tokens treated as parse leaves (typically variables)
+        returns parsed term or None if parse fails
+        """
+
+        # no tokens left to parse
+        if len(tokens) == 0: return None
+
+        # next token is a leaf
+        if tokens[0] in sentinels: return self.token_term(tokens[0])
+
+        # next token starts a compound term, recurse
+        for rule_index in range(len(self.rules)):
+            term = self.parse_rule(rule_index, tokens, sentinels)
+            if term is not None: return term
+
+        # no matching rules, parse failed
+        return None
+
+    def parse_rule(self, rule_index, tokens, sentinels):
+        """
+        Determines if leading portion of tokens is parsable by particular rule
+            rule_index: particular parsing rule to try
+            tokens: token sequence to parse
+            sentinels: tokens treated as parse leaves (typically variables)
+        returns parsed term or None if parse fails
+        """
+
+        # extract rule and mandatory variables
+        rule = self.rules[rule_index]
+        mandatory = tuple(f.tokens[1] for f in rule.floatings)
+
+        # process tokens left to right, building up substitution 
+        i = 0 # index in provided token sequence, not rule token sequence
+        substitution = {}
+        for tok in rule.consequent.tokens[1:]: # omit typecode
+
+            # ran out of provided tokens, rule does not apply
+            if i >= len(tokens): return None
+    
+            # current rule token is mandatory variable
+            if tok in mandatory:
+
+                # try parsing replacement sub-term
+                subterm = self.parse(tokens[i:], sentinels)
+                if subterm is None: return None # parsing failed, rule does not apply
+    
+                # update substitution with parsed subterm
+                v = self.encode(tok)
+                if v not in substitution: substitution[v] = subterm
+                else: assert np.array_equal(substitution[v], subterm)
+    
+                # advance past parsed subterm
+                i += len(subterm)
+    
+            # current rule token is constant and does not match, rule does not apply
+            elif tok != tokens[i]: return None
+
+            # current rule token is constant and does match, advance one position
+            else: i += 1
+
+        # at this point the rule parsed successfully, form term and apply substitution
+        return substitute(self.rule_term(rule_index), substitution)
+
     def unify(self, t1, t2, variables):
-        i = 0
+        """
+        unify two terms
+            t1, t2: terms to unify, assumed to be standardized apart
+            variables: set of integer ids representing substitutable variables
+        returns substitution dictionary if successful else None
+        """
+        # build up substitution while consuming term heads until empty
         s = {}
-        while t1.shape[1] > 0:
+        while len(t1) > 0 and len(t2) > 0:
 
-            if t2.shape[1] == 0: return False, {}
+            # if heads match, advance to tails
+            if t1[0,0] == t2[0,0]:
+                t1 = t1[1:]
+                t2 = t2[1:]
+                continue
 
-            if t1[0,0] in variables:
-                if t1[0,0] in t2[0,:t2[1,0]]: return False, {} # occurs
-                new_s = {t1[0,0]: t2[0,:t2[1,0]]}
-                s = self.compose(new_s, s)
-                t1 = self.substitute(t1[:,1:], new_s)
-                t2 = self.substitute(t2[:,t2[1,0]:], new_s)
-                
-            elif t2[0,0] in variables:
-                if t2[0,0] in t1[0,:t1[1,0]]: return False, {} # occurs
-                new_s = {t2[0,0]: t1[0,:t1[1,0]]}
-                s = self.compose(new_s, s)
-                t1 = self.substitute(t1[:,t1[1,0]:], new_s)
-                t2 = self.substitute(t2[:,1:], new_s)
+            # check if either term head is a variable
+            v1 = (t1[0,0] in variables)
+            v2 = (t2[0,0] in variables)
+            if v1 or v2:
 
-            elif t1[0,0] == t2[0,0]:
-                t1 = t1[:,1:]
-                t2 = t2[:,1:]
+                # swap if needed so t1 has the variable head
+                if not v1: t1, t2 = t2, t1
 
-            else: return False, {}
+                # extract variable and subterm
+                v = t1[0,0] # variable integer id
+                n = t2[0,1] # length of replacement term
+                st = t2[:n] # replacement term
 
-        if t2.shape[1] == 0: return True, s
+                # fail if v occurs in st
+                if v in st[:,0]: return None
 
-        return False, {}
+                # otherwise incorporate substitution and advance to term tails
+                new_s = {v: st}
+                s = compose(new_s, s)
+                t1 = substitute(t1[1:], new_s)
+                t2 = substitute(t2[n:], new_s)
+
+            # otherwise term heads are distinct constants so fail
+            else: return None
+
+        # success if both terms fully consumed
+        if len(t1) == len(t2) == 0: return s
+
+        # otherwise failure
+        return None
 
 if __name__ == "__main__":
 
     import src.metamathpy.setmm as ms
     db = ms.load_pl()
     rules = db.rules_up_to("mp2")
+
+    t1 = np.array([[1,0,0],[3,1,1]]).T
+    t2 = substitute(t1, {0: t1})
+    assert np.array_equal(t2, np.array([[1,1,0,0,1,0,0], [7,3,1,1,3,1,1]]).T)
+
     tm = TermManager([rule for rule in rules["wff"] if rule.consequent.tag == "$a"])
+    t0 = tm.rule_term(0)
+    t1 = tm.rule_term(1)
+    assert " ".join(tm.serialize(t0)) == "-. ph"
+    assert " ".join(tm.serialize(t1)) == "( ph -> ps )"
 
-    for r, rule in enumerate(tm.rules): print(r); print(rule)
+    for (s,v,r) in [
+        ("-. ph", ["ph"], True),
+        ("( ph -> ph )", ["ph"], True),
+        ("( ph -> ps )", ["ph","ps"], True),
+        ("( -. ph -> -. ( ps -> ph ) )", ["ph","ps"], True),
 
-    s = tm.sentinel_term(0)
-    t = tm.variable_term(0)
-    print(s)
-    print(" ".join(tm.serialize(s)))
-    print(t)
-    print(" ".join(tm.serialize(t)))
-    
-    t2 = tm.compound_term(1)
-    print(t2)
-    print(" ".join(tm.serialize(t2)))
+        ("-. (", ["ph"], False),
+        ("( ph -> )", ["ph"], False),
+        ("( ph ps )", ["ph","ps"], False),
+        ("( -. ph -> -. ( ps -> ph )", ["ph","ps"], False),
+    ]:
+        print(s)
+        t = tm.parse(s.split(), v)
+        if r: 
+            assert " ".join(tm.serialize(t)) == s
+        else:
+            assert t is None
 
-    t3 = tm.substitute(t2, {0: s, 1: t})
-    print(t3)
-    print(" ".join(tm.serialize(t3)))
+    t1 = tm.parse("( ph -> ps )".split(), ["ph","ps"])
+    t2 = tm.parse("( ph -> ph )".split(), ["ph"])
+    t3 = tm.parse("( ch -> -. ( ta -> ch ) )".split(), ["ch", "ta"])
 
-    t4 = tm.substitute(t2, {0: t3, 1: t2})
-    print(t4)
-    print(" ".join(tm.serialize(t4)))
+    s = tm.unify(t1, t3, set(map(tm.encode, ["ph","ps","ch","ta"])))
+    assert s is not None
+    print({tm.decode(v): " ".join(tm.serialize(t)) for (v,t) in s.items()})
 
-    t5, length = tm.parse(tuple("( ( ph -> ps ) -> -. ph )".split()), ("ph","ps"), ())
-    print(t5)
-    print("parse length", length)
-    print(" ".join(tm.serialize(t5)))
-
+    s = tm.unify(t2, t3, set(map(tm.encode, ["ph","ch","ta"])))
+    assert s is None
 
 
 ###############################
