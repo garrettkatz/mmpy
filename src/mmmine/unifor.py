@@ -7,15 +7,18 @@ except NameError:
     profile = lambda x: x
 
 class PartialProof:
-    def __init__(self, assertions, justifications, dependencies):
+    def __init__(self, assertions, justifications, dependencies, used):
         """
         assertions[i]: term for the ith assertion
         justifications[i]: label of the rule justifying assertion i
         dependencies[i]: sequence of dependency step indices, same order as justifying rule's essentials
+        used[i]: True if step i is a dependency of a later step, False otherwise
         """
         self.assertions = assertions
         self.justifications = justifications
         self.dependencies = dependencies
+        self.used = used
+
 
     def to_string(self, term_manager):
         steps = []
@@ -23,11 +26,16 @@ class PartialProof:
             steps.append(f"{i}: {j}{list(d)} |- " + " ".join(term_manager.serialize(a)))
         return "\n".join(steps)
 
+    def copy(self):
+        return PartialProof(
+            [a.copy() for a in self.assertions],
+            list(self.justifications), list(self.dependencies), list(self.used))
+
     @profile
     def substitute(self, substitution):
         return PartialProof(
             [mt.substitute(a, substitution) for a in self.assertions],
-            list(self.justifications), list(self.dependencies))
+            list(self.justifications), list(self.dependencies), list(self.used))
 
     @profile
     def unify_with(self, terms, index, variables):
@@ -43,6 +51,8 @@ class PartialProof:
         if len(terms) == 0:
             yield self, ()
             return
+
+        # TODO: pass in "use" budget and filter out some i < index that leave too many unused
 
         # try unifying next term with each of self's assertions
         for i in range(index):
@@ -79,8 +89,9 @@ class PartialProof:
         # initialize justifications and bindings for each step
         justifications = [h.label for h in claim.essentials] + ["" for d in range(tail_size)]
         dependencies = [() for _ in range(proof_size)]
+        used = [False for _ in range(proof_size)]
 
-        return PartialProof(assertions, justifications, dependencies), variables
+        return PartialProof(assertions, justifications, dependencies, used), variables
 
 class SearchNode:
     def __init__(self, db, claim, rules, partial_proof, variables, term_manager):
@@ -100,21 +111,25 @@ class SearchNode:
         assumes proof is complete and correct
         returns substituted partial proof
         """
+
         # identify claim metavariables (should not be replaced)
         claim_variables = set(map(self.term_manager.encode, self.claim.mandatory.keys()))
+
         # collect canonical metavariables
         canonical_variables = set(map(self.term_manager.encode, self.claim.variables))
+
         # filter those not used in claim
         available_variables = canonical_variables - claim_variables
+
         # collect work variables in proof
         work_variables = set()
         for a in self.partial_proof.assertions:
             work_variables |= (set(a[:,0]) & self.variables)
         work_variables -= claim_variables # is this necessary? self.variables should really be self.work_variables?
+
         # substitute work variables with terms for canonical ones
         available_variables = [mt.singleton_term(v) for v in available_variables]
         substitution = dict(zip(list(work_variables), available_variables))
-        print(substitution)
         return self.partial_proof.substitute(substitution)
 
     def reconstruct_proof(self):
@@ -158,20 +173,30 @@ class SearchNode:
     @profile
     def applications_of(self, label, essentials, consequent, step_index, variables):
 
-        # first check consequent
-        substitution = mt.unify(consequent, self.partial_proof.assertions[step_index], variables)
-        if substitution is None: return
+        # for all step indices before the last, consequent unifies trivially with step's work variable
+        # (only true for pure forward search)
+        if step_index + 1 < len(self.partial_proof.assertions):
+            partial_proof = self.partial_proof.copy()
+            partial_proof.assertions[step_index] = consequent
 
-        # apply viable substitution to essential hypotheses
-        essentials = [mt.substitute(e, substitution) for e in essentials]
+        # otherwise, see if rule consequent unifies with claim consequent
+        else:
+            substitution = mt.unify(consequent, self.partial_proof.assertions[step_index], variables)
+            if substitution is None: return
+
+            # apply viable substitution to essential hypotheses
+            essentials = [mt.substitute(e, substitution) for e in essentials]
         
-        # and to partial proof
-        partial_proof = self.partial_proof.substitute(substitution)
+            # and to partial proof? is this a vacuous substitution?
+            partial_proof = self.partial_proof.substitute(substitution)
+
+        # record this rule as justification
         partial_proof.justifications[step_index] = label
 
         # continue unifying substituted proof with substituted essentials
         for (substituted_proof, indices) in partial_proof.unify_with(essentials, step_index, variables):
             substituted_proof.dependencies[step_index] = indices
+            for i in indices: substituted_proof.used[i] = True
             yield substituted_proof
 
     @profile
@@ -233,14 +258,14 @@ if __name__ == "__main__":
     import src.metamathpy.database as md
 
     max_depth = 3
-    start_from_goal_index = 2 #177 jad
-    end_at_goal_index = 20
+    start_from_goal_index = 0 #177 jad
+    end_at_goal_index = -1 #40
 
     db = ms.load_pl()
-    # goal_labels = ["a1i"]
+    goal_labels = ["expt"]
     # goal_labels = ["peirceroll"]
     # goal_labels = ["mpisyl"]
-    goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p" and "ALT" not in rule.consequent.label]
+    # goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p" and "ALT" not in rule.consequent.label]
     goal_times = []
     goal_proofs = []
     for gl, goal_label in enumerate(goal_labels):

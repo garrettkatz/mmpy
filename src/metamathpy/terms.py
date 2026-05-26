@@ -14,7 +14,6 @@ except NameError:
 import src.metamathpy.database as md
 import src.metamathpy.proof as mp
 
-
 def rename(term, substitution):
     """
     substitution assuming all replacement terms are other variables
@@ -26,29 +25,31 @@ def rename(term, substitution):
         renamed[(term[:,0] == u),0] = v
     return renamed
 
-@profile
 def substitute(term, substitution):
     """
-    direct substitution into symbol string
+    direct substitution into term
     substitution = {int id: replacement term, ...}
-    returns new term
+    returns new term (copied unless no changes)
     """
 
     # empty terms
     if len(term) == 0: return term
 
+    # check if anything is being replaced
+    replacement_index = [i for i in range(len(term)) if term[i,0] in substitution]
+    if len(replacement_index) == 0: return term
+
     # update lengths
     term = term.copy()
     start = np.arange(len(term))
     stop = start + term[:,1]
-    for i in range(len(term)):
-        if term[i,0] in substitution:
-            bump = len(substitution[term[i,0]]) - 1 # -1 for singleton term being replaced
-            inscope = (start <= i) & (i < stop)
-            term[inscope,1] += bump
+    for i in replacement_index:
+        bump = len(substitution[term[i,0]]) - 1 # -1 for singleton term being replaced
+        inscope = (start <= i) & (i < stop)
+        term[inscope,1] += bump
 
     # insert replacements
-    chunks = [substitution.get(term[i,0], term[i:i+1]) for i in range(len(term))]
+    chunks = [substitution[term[i,0]] if i in replacement_index else term[i:i+1] for i in range(len(term))]
     return np.concatenate(chunks, axis=0)
 
 def compose(s2, s1):
@@ -218,7 +219,7 @@ class TermManager:
                 steps[conclusion] = mp.ProofStep(conclusion, rule, dependencies, substitution)
             return steps[conclusion]
 
-@profile
+# @profile
 def unify(t1, t2, variables):
     """
     unify two terms
