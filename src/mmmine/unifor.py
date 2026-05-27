@@ -205,21 +205,29 @@ class SearchNode:
         if step_index is None:
             step_index = len(self.claim.essentials)
 
-        # print(self.proof_string())
-        # input(f'^^{step_index=}...')
-
-        if step_index == len(self.partial_proof.assertions):
+        proof_size = len(self.partial_proof.assertions)
+        if step_index == proof_size:
             yield self
             return
 
-        # TODO: filter rules based on used mask
+        # Determine how many essentials are needed to use all steps
+        max_essentials = max(len(essentials) for (_, _, essentials, _) in self.rules)
+        num_unused = sum((not u) for u in self.partial_proof.used) - 1 # -1 for claim consequent
+        steps_remaining = proof_size - step_index
+        min_essentials = max(0, num_unused - (steps_remaining - 1) * max_essentials)
+
+        # skip if impossible to use all steps
+        if min_essentials > max_essentials: return
 
         # TODO: consider prioritizing rules with 1+ essentials and unifying with most recent assertions first, to avoid repeating the same reasoning multiple times    
         for rule in self.rules:
+            label, mandatory, essentials, consequent = rule
+
+            # prune rules without enough essentials to use all steps
+            if len(essentials) < min_essentials: continue
 
             # standardize apart rule statements
             offset = max(set(self.term_manager.encoder.values()) | self.variables) + 1 # starting integer for new variables
-            label, mandatory, essentials, consequent = rule
             s = {v: (offset + m) for (m, v) in enumerate(mandatory)}
             essentials = [mt.rename(e, s) for e in essentials]
             consequent = mt.rename(consequent, s)
