@@ -124,20 +124,23 @@ class Database:
         # print(constants)
         # with open(fname, "w") as f: f.write(s)
 
-    def rules_up_to(self, stop_label):
+    def rules_up_to(self, stop_label, exclude_list=None, exclude_OLD=True, exclude_ALT=True):
         """
         returns rules
             rules[typecode]: list of rules up to but not including stop_label
             rules["all"]: union over typecodes
         """
 
+        if exclude_list is None: exclude_list = []
+
         rules = {"all": []}
         for label, rule in self.rules.items():
             if label == stop_label: break
     
-            # special cases based on mm conventions
-            if label in ("idi", "a1ii"): continue # special rules only useful in mm proof assistants
-            if label in ("4syl","idALT"): continue # new usage is discouraged
+            # exclude requested rules
+            if label[-3:] == "OLD" and exclude_OLD: continue
+            if label[-3:] == "ALT" and exclude_ALT: continue
+            if label in exclude_list: continue
 
             # exclude essential hypothesis "rules"
             if rule.consequent.tag not in ("$f", "$p", "$a"): continue

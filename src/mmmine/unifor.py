@@ -38,32 +38,84 @@ class PartialProof:
             list(self.justifications), list(self.dependencies), list(self.used))
 
     @profile
-    def unify_with(self, terms, index, variables):
+    def unify_with(self, terms, index, variables, use_quota):
         """
         generates unifications of each term with multisubset of self's assertions up to index
-        yields (proof, indices)
-            proof: substituted version of self that unified
-            indices: tuple of indices each term unified with 
+        yields proof, substituted version of self that unified
         variables is set of variable integer ids passed to mt.unify
+        use_quota is the minimum number of self's assertions that need to become used
         """
 
-        # base case: no terms left
-        if len(terms) == 0:
-            yield self, ()
-            return
+        # base case: impossible to meet quota
+        if len(terms) < use_quota:
+            return # unreachable code?
 
-        # TODO: pass in "use" budget and filter out some i < index that leave too many unused
+        # base case: all terms processed
+        if len(terms) == 0:
+            # only successful if quota is met
+            if use_quota <= 0: yield self
+            return
 
         # try unifying next term with each of self's assertions
         for i in range(index):
+
+            # skip this assertion if already used so won't meet quota
+            if self.used[i] and len(terms) == use_quota: continue
+
+            # find unifying substitution (skip if none)
             substitution = mt.unify(terms[0], self.assertions[i], variables)
             if substitution is None: continue
 
-            # recurse on remaining terms
+            # update copy of proof substituted with this unification
             partial_proof = self.substitute(substitution)
+            partial_proof.dependencies[index] = partial_proof.dependencies[index] + (i,)
+            partial_proof.used[i] = True
+
+            # recurse on remaining terms
             remaining_terms = [mt.substitute(t, substitution) for t in terms[1:]]
-            for (proof, indices) in partial_proof.unify_with(remaining_terms, index, variables):
-                yield proof, (i,) + indices
+            new_usage = (not self.used[i])
+            yield from partial_proof.unify_with(remaining_terms, index, variables, use_quota - new_usage)
+
+    @profile
+    def unify_with_filtered(self, terms, index, indices, variables, use_quota):
+        """
+        generates unifications of each term with multisubset of self's assertions in indices
+        yields proof, substituted version of self that unified
+        index is for the assertion being justified whose dependencies are updated
+        indices[i] is the filtered set of assertion indices that terms[i] should be unified against
+        variables is set of variable integer ids passed to mt.unify
+        use_quota is the minimum number of self's assertions that need to become used
+        """
+
+        # base case: impossible to meet quota
+        if len(terms) < use_quota:
+            return # unreachable code?
+
+        # base case: all terms processed
+        if len(terms) == 0:
+            # only successful if quota is met
+            if use_quota <= 0: yield self
+            return
+
+        # try unifying next term with next filtered subset of self's assertions
+        for i in indices[0]:
+
+            # skip this assertion if already used so won't meet quota
+            if self.used[i] and len(terms) == use_quota: continue
+
+            # find unifying substitution (skip if none)
+            substitution = mt.unify(terms[0], self.assertions[i], variables)
+            if substitution is None: continue
+
+            # update copy of proof substituted with this unification
+            partial_proof = self.substitute(substitution)
+            partial_proof.dependencies[index] = partial_proof.dependencies[index] + (i,)
+            partial_proof.used[i] = True
+
+            # recurse on remaining terms
+            remaining_terms = [mt.substitute(t, substitution) for t in terms[1:]]
+            new_usage = (not self.used[i])
+            yield from partial_proof.unify_with_filtered(remaining_terms, index, indices[1:], variables, use_quota - new_usage)
 
     def initialized_for(claim, proof_size, term_manager):
         tail_size = proof_size - len(claim.essentials)
@@ -97,7 +149,7 @@ class SearchNode:
     def __init__(self, db, claim, rules, partial_proof, variables, term_manager):
         self.db = db
         self.claim = claim
-        self.rules = rules # [..., (mandatory variable ints, essential termss, consequent term), ...]
+        self.rules = rules # {len(essentials): [..., (mandatory variable ints, essential termss, consequent term), ...], ...}
         self.partial_proof = partial_proof
         self.variables = variables
         self.term_manager = term_manager
@@ -171,7 +223,7 @@ class SearchNode:
         return step
 
     @profile
-    def applications_of(self, label, essentials, consequent, step_index, variables):
+    def applications_of(self, label, essentials, consequent, step_index, variables, use_quota):
 
         # for all step indices before the last, consequent unifies trivially with step's work variable
         # (only true for pure forward search)
@@ -193,11 +245,19 @@ class SearchNode:
         # record this rule as justification
         partial_proof.justifications[step_index] = label
 
-        # continue unifying substituted proof with substituted essentials
-        for (substituted_proof, indices) in partial_proof.unify_with(essentials, step_index, variables):
-            substituted_proof.dependencies[step_index] = indices
-            for i in indices: substituted_proof.used[i] = True
-            yield substituted_proof
+        # # continue unifying substituted proof with substituted essentials
+        # yield from partial_proof.unify_with(essentials, step_index, variables, use_quota)
+
+        # filter unifiable indices for each substituted essential
+        indices = []
+        for e in essentials:
+            indices.append([])
+            for i in range(step_index):
+                s = mt.unify(e, partial_proof.assertions[i], variables)
+                if s is not None: indices[-1].append(i)
+
+        # continue unifying substituted essentials with filtered substituted proof steps
+        yield from partial_proof.unify_with_filtered(essentials, step_index, indices, variables, use_quota)
 
     @profile
     def dfs(self, step_index=None):
@@ -211,7 +271,7 @@ class SearchNode:
             return
 
         # Determine how many essentials are needed to use all steps
-        max_essentials = max(len(essentials) for (_, _, essentials, _) in self.rules)
+        max_essentials = max(self.rules.keys())
         num_unused = sum((not u) for u in self.partial_proof.used) - 1 # -1 for claim consequent
         steps_remaining = proof_size - step_index
         min_essentials = max(0, num_unused - (steps_remaining - 1) * max_essentials)
@@ -219,22 +279,21 @@ class SearchNode:
         # skip if impossible to use all steps
         if min_essentials > max_essentials: return
 
+        # collect rules with enough essential hypotheses
         # TODO: consider prioritizing rules with 1+ essentials and unifying with most recent assertions first, to avoid repeating the same reasoning multiple times    
-        for rule in self.rules:
+        rules = sum([self.rules[h] for h in self.rules if h >= min_essentials], [])
+        for rule in rules:
             label, mandatory, essentials, consequent = rule
-
-            # prune rules without enough essentials to use all steps
-            if len(essentials) < min_essentials: continue
 
             # standardize apart rule statements
             offset = max(set(self.term_manager.encoder.values()) | self.variables) + 1 # starting integer for new variables
             s = {v: (offset + m) for (m, v) in enumerate(mandatory)}
             essentials = [mt.rename(e, s) for e in essentials]
             consequent = mt.rename(consequent, s)
-            variables = self.variables | set([offset + m for m in range(len(mandatory))])
+            variables = self.variables | set(s.values())
 
             # recurse on all valid rule applications
-            for partial_proof in self.applications_of(label, essentials, consequent, step_index, variables):
+            for partial_proof in self.applications_of(label, essentials, consequent, step_index, variables, min_essentials):
                 child = SearchNode(self.db, self.claim, self.rules, partial_proof, variables, self.term_manager)
                 yield from child.dfs(step_index+1)
 
@@ -265,44 +324,58 @@ if __name__ == "__main__":
     import src.metamathpy.setmm as ms
     import src.metamathpy.database as md
 
-    max_depth = 3
-    start_from_goal_index = 0 #177 jad
-    end_at_goal_index = -1 #40
+    max_depth = 2
+
+    exclude_list = ms.new_usage_discouraged()
+    start_from_goal_index = 0 #175 jad # 1374 syl332anc took 24223s before unify_with_filter
+    stop_after = 10
 
     db = ms.load_pl()
-    goal_labels = ["expt"]
+    # goal_labels = ["expt"]
     # goal_labels = ["peirceroll"]
     # goal_labels = ["mpisyl"]
-    # goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p" and "ALT" not in rule.consequent.label]
+    # goal_labels = ["ad4ant23"]
+    # goal_labels = ["syl123anc"] # several mins
+    # goal_labels = ["syl321anc"] # ~10min
+    goal_labels = ["syl332anc"]
+    # goal_labels = ["olcs"] # 30sec
+    # goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p" and label[-3:] not in ("ALT", "OLD") and label not in exclude_list]
     goal_times = []
-    goal_proofs = []
+    goal_proofs = {}
+    shortened = []
     for gl, goal_label in enumerate(goal_labels):
         if gl < start_from_goal_index: continue
-        if gl == end_at_goal_index: break
+        if len(goal_times) == stop_after: break
 
         print(f"\n *** attempting {goal_label} ({gl} of {len(goal_labels)})... ***\n")
         start_time = perf_counter()
 
         claim = db.rules[goal_label]
-        rules = db.rules_up_to(goal_label)
+        rules = db.rules_up_to(goal_label, exclude_list)
         if "|-" not in rules: rules["|-"] = []
         term_manager = mt.TermManager(rules["wff"])
 
-        # convert entailment rules to terms
-        entailment_rules = []
+        # convert entailment rules to terms, grouped by essential count
+        entailment_rules = {}
         for rule in rules["|-"]:
+
+            # term conversions
             essentials = [term_manager.parse(h.tokens[1:], set(rule.mandatory.keys())) for h in rule.essentials]
             consequent = term_manager.parse(rule.consequent.tokens[1:], set(rule.mandatory.keys()))
             mandatory = set([term_manager.encode(t) for t in rule.mandatory.keys()])
-            entailment_rules.append((rule.consequent.label, mandatory, essentials, consequent))
+
+            # group by essential count
+            if len(essentials) not in entailment_rules: entailment_rules[len(essentials)] = []
+            entailment_rules[len(essentials)].append((rule.consequent.label, mandatory, essentials, consequent))
 
         proof_root = ids(db, claim, entailment_rules, term_manager, len(claim.essentials)+max_depth)
 
         total_time = perf_counter()-start_time
+        goal_times.append(total_time)
 
         if proof_root is None:
             print("Failure :(")
-            input('...')
+            # input('...')
         else:
 
             # verify and compare
@@ -327,10 +400,16 @@ if __name__ == "__main__":
             #     print(proof_root.tree_string())
             print(f"total time: {total_time:.3f}s")
             if new_size < old_size:
+                shortened.append(goal_label)
                 print("You found one!!!")
                 input('__')
 
             # # print(proof.to_string(term_manager))
             # print(proof.tree_string())
             # input('..')
+
+            goal_proofs[goal_label] = new_normal_proof
+
+    print(f"Grand total time = {sum(goal_times)}s, {len(goal_proofs)} of {len(goal_times)} proved, {len(shortened)} shortened:")
+    print(shortened)
 

@@ -14,6 +14,7 @@ except NameError:
 import src.metamathpy.database as md
 import src.metamathpy.proof as mp
 
+@profile
 def rename(term, substitution):
     """
     substitution assuming all replacement terms are other variables
@@ -25,6 +26,7 @@ def rename(term, substitution):
         renamed[(term[:,0] == u),0] = v
     return renamed
 
+@profile
 def substitute(term, substitution):
     """
     direct substitution into term
@@ -52,6 +54,35 @@ def substitute(term, substitution):
     chunks = [substitution[term[i,0]] if i in replacement_index else term[i:i+1] for i in range(len(term))]
     return np.concatenate(chunks, axis=0)
 
+@profile
+def substitute_single(term, v, t):
+    """
+    direct substitution into term
+    substitution = {v: t}
+    returns new term (copied unless no changes)
+    """
+
+    # empty terms
+    if len(term) == 0: return term
+
+    # check if anything is being replaced
+    replacement_index = [i for i in range(len(term)) if term[i,0] == v]
+    if len(replacement_index) == 0: return term
+
+    # update lengths
+    term = term.copy()
+    start = np.arange(len(term))
+    stop = start + term[:,1]
+    for i in replacement_index:
+        bump = len(t) - 1 # -1 for singleton term being replaced
+        inscope = (start <= i) & (i < stop)
+        term[inscope,1] += bump
+
+    # insert replacements
+    chunks = [t if i in replacement_index else term[i:i+1] for i in range(len(term))]
+    return np.concatenate(chunks, axis=0)
+
+@profile
 def compose(s2, s1):
     """
     equivalent substitution to performing s1 followed by s2
@@ -62,6 +93,18 @@ def compose(s2, s1):
         if t[0,0] != k: s21[k] = t
     for k, v in s2.items():
         if k not in s1: s21[k] = v
+    return s21
+
+@profile
+def compose_single(v2, t2, s1):
+    """
+    equivalent substitution to performing s1 followed by {v2: t2}
+    """
+    s21 = {}
+    for v1, t1 in s1.items():
+        t = substitute_single(t1, v2, t2)
+        if t[0,0] != v1: s21[v1] = t
+    if v2 not in s1: s21[v2] = t2
     return s21
 
 def singleton_term(int_id):
@@ -176,7 +219,7 @@ class TermManager:
 
     def bind(self, tokens, variables, term):
         """
-        bind variables in a token sequence to a term
+        bind variables in a token sequence to match a term
         fails if the term is not an instance of the token sequence
         returns substitution or None if failure
         """
@@ -219,7 +262,7 @@ class TermManager:
                 steps[conclusion] = mp.ProofStep(conclusion, rule, dependencies, substitution)
             return steps[conclusion]
 
-# @profile
+@profile
 def unify(t1, t2, variables):
     """
     unify two terms
@@ -254,6 +297,9 @@ def unify(t1, t2, variables):
             if v in st[:,0]: return None
 
             # otherwise incorporate substitution and advance to term tails
+            # s = compose_single(v, st, s)
+            # t1 = substitute_single(t1[1:], v, st)
+            # t2 = substitute_single(t2[n:], v, st)
             new_s = {v: st}
             s = compose(new_s, s)
             t1 = substitute(t1[1:], new_s)

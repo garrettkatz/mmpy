@@ -43,10 +43,30 @@ def load_to(last_rule, fpath = None):
     db = md.parse(fpath, last_rule=last_rule)
     return db
 
+def new_usage_discouraged(fpath = None):
+    if fpath is None:
+        fpath = os.path.join(os.environ["HOME"], "set.mm", "discouraged")
+    head = 'New usage of "'
+    discouraged_labels = []
+    with open(fpath, "r") as f:
+        for line in f:
+            if line[:len(head)] != head: continue
+            tail = line[len(head):]
+            label = tail[:tail.find('"')]
+            discouraged_labels.append(label)
+    return discouraged_labels
+
 if __name__ == "__main__":
 
     # db = load_imp()
     # db = load_ni()
     db = load_pl()
     db.print()
+
+    exclude = new_usage_discouraged()
+    assert "idi" in exclude
+    assert "a1ii" in exclude
+    assert "idALT" in exclude
+    assert "4syl" in exclude
+    print(f"{len(exclude)} total new usage discourageds")
 
