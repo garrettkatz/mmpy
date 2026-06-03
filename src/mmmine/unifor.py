@@ -324,11 +324,11 @@ if __name__ == "__main__":
     import src.metamathpy.setmm as ms
     import src.metamathpy.database as md
 
-    max_depth = 2
+    max_depth = 1
 
     exclude_list = ms.new_usage_discouraged()
-    start_from_goal_index = 0 #175 jad # 1374 syl332anc took 24223s before unify_with_filter
-    stop_after = 10
+    start_from_goal_index = 1300 #175 jad # 1374 syl332anc took 24223s before unify_with_filter
+    stop_after = -1
 
     db = ms.load_pl()
     # goal_labels = ["expt"]
@@ -337,9 +337,9 @@ if __name__ == "__main__":
     # goal_labels = ["ad4ant23"]
     # goal_labels = ["syl123anc"] # several mins
     # goal_labels = ["syl321anc"] # ~10min
-    goal_labels = ["syl332anc"]
+    # goal_labels = ["syl332anc"]
     # goal_labels = ["olcs"] # 30sec
-    # goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p" and label[-3:] not in ("ALT", "OLD") and label not in exclude_list]
+    goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p" and label[-3:] not in ("ALT", "OLD") and label not in exclude_list]
     goal_times = []
     goal_proofs = {}
     shortened = []
@@ -356,6 +356,7 @@ if __name__ == "__main__":
         term_manager = mt.TermManager(rules["wff"])
 
         # convert entailment rules to terms, grouped by essential count
+        print("termifying...")
         entailment_rules = {}
         for rule in rules["|-"]:
 
@@ -368,6 +369,7 @@ if __name__ == "__main__":
             if len(essentials) not in entailment_rules: entailment_rules[len(essentials)] = []
             entailment_rules[len(essentials)].append((rule.consequent.label, mandatory, essentials, consequent))
 
+        print("searching...")
         proof_root = ids(db, claim, entailment_rules, term_manager, len(claim.essentials)+max_depth)
 
         total_time = perf_counter()-start_time
