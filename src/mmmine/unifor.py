@@ -1,5 +1,6 @@
 import src.metamathpy.proof as mp
 import src.metamathpy.terms as mt
+# import src.metamathpy.cterms as mt
 
 try:
     profile
@@ -18,7 +19,6 @@ class PartialProof:
         self.justifications = justifications
         self.dependencies = dependencies
         self.used = used
-
 
     def to_string(self, term_manager):
         steps = []
@@ -176,7 +176,8 @@ class SearchNode:
         # collect work variables in proof
         work_variables = set()
         for a in self.partial_proof.assertions:
-            work_variables |= (set(a[:,0]) & self.variables)
+            # work_variables |= (set(a[:,0]) & self.variables)
+            work_variables |= (set([u for (u,_) in a]) & self.variables)
         work_variables -= claim_variables # is this necessary? self.variables should really be self.work_variables?
 
         # substitute work variables with terms for canonical ones
@@ -200,7 +201,8 @@ class SearchNode:
 
             # bind the consequent of the rule justifying current step
             rule = self.db.rules[j]
-            substitution = self.term_manager.bind(rule.consequent.tokens[1:], set(rule.mandatory.keys()), a)
+            # substitution = self.term_manager.bind(rule.consequent.tokens[1:], set(rule.mandatory.keys()), a)
+            substitution = self.term_manager.instantiate(rule.consequent.tokens[1:], set(rule.mandatory.keys()), a)
             conclusion = ("|-",) + self.term_manager.serialize(a)
             assert conclusion not in steps # proof search should not produce redundant steps 
 
@@ -209,7 +211,8 @@ class SearchNode:
             for i,h in zip(d, rule.essentials):
                 dependency = steps[("|-",) + self.term_manager.serialize(p.assertions[i])]
                 dependencies[h.label] = dependency
-                substitution |= self.term_manager.bind(h.tokens[1:], set(rule.mandatory.keys()), p.assertions[i])
+                # substitution |= self.term_manager.bind(h.tokens[1:], set(rule.mandatory.keys()), p.assertions[i])
+                substitution |= self.term_manager.instantiate(h.tokens[1:], set(rule.mandatory.keys()), p.assertions[i])
 
             # insert the proofs of floating hypotheses
             for f in rule.floatings:
