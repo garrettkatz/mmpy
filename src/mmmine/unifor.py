@@ -324,11 +324,12 @@ if __name__ == "__main__":
     import src.metamathpy.setmm as ms
     import src.metamathpy.database as md
 
-    max_depth = 1
+    max_depth = 2
 
+    do_run = True
     exclude_list = ms.new_usage_discouraged()
-    start_from_goal_index = 1300 #175 jad # 1374 syl332anc took 24223s before unify_with_filter
-    stop_after = -1
+    start_from_goal_index = 0 #175 jad # 1374 syl332anc took 24223s before unify_with_filter
+    stop_after = 100
 
     db = ms.load_pl()
     # goal_labels = ["expt"]
@@ -340,78 +341,85 @@ if __name__ == "__main__":
     # goal_labels = ["syl332anc"]
     # goal_labels = ["olcs"] # 30sec
     goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p" and label[-3:] not in ("ALT", "OLD") and label not in exclude_list]
-    goal_times = []
-    goal_proofs = {}
-    shortened = []
-    for gl, goal_label in enumerate(goal_labels):
-        if gl < start_from_goal_index: continue
-        if len(goal_times) == stop_after: break
 
-        print(f"\n *** attempting {goal_label} ({gl} of {len(goal_labels)})... ***\n")
-        start_time = perf_counter()
+    if do_run:
 
-        claim = db.rules[goal_label]
-        rules = db.rules_up_to(goal_label, exclude_list)
-        if "|-" not in rules: rules["|-"] = []
-        term_manager = mt.TermManager(rules["wff"])
+        goal_times = {}
+        goal_proofs = {}
+        shortened = []
+        for gl, goal_label in enumerate(goal_labels):
+            if gl < start_from_goal_index: continue
+            if len(goal_times) == stop_after: break
+    
+            print(f"\n *** attempting {goal_label} ({gl} of {len(goal_labels)})... ***\n")
+            start_time = perf_counter()
+    
+            claim = db.rules[goal_label]
+            rules = db.rules_up_to(goal_label, exclude_list)
+            if "|-" not in rules: rules["|-"] = []
+            term_manager = mt.TermManager(rules["wff"])
+    
+            # convert entailment rules to terms, grouped by essential count
+            print("termifying...")
+            entailment_rules = {}
+            for rule in rules["|-"]:
+    
+                # term conversions
+                essentials = [term_manager.parse(h.tokens[1:], set(rule.mandatory.keys())) for h in rule.essentials]
+                consequent = term_manager.parse(rule.consequent.tokens[1:], set(rule.mandatory.keys()))
+                mandatory = set([term_manager.encode(t) for t in rule.mandatory.keys()])
+    
+                # group by essential count
+                if len(essentials) not in entailment_rules: entailment_rules[len(essentials)] = []
+                entailment_rules[len(essentials)].append((rule.consequent.label, mandatory, essentials, consequent))
+    
+            print("searching...")
+            proof_root = ids(db, claim, entailment_rules, term_manager, len(claim.essentials)+max_depth)
+    
+            total_time = perf_counter()-start_time
+            goal_times[goal_label] = total_time
+    
+            if proof_root is None:
+                print("Failure :(")
+                # input('...')
+            else:
+    
+                # verify and compare
+                old_root, _ = mp.verify_compressed_proof(db, claim)
+                old_normal_proof = old_root.normal_proof()
+                new_normal_proof = proof_root.normal_proof()
+    
+                # new_size = len([s for s in proof_root.all_steps() if s.conclusion[0] == "|-"])
+                # old_size = len([s for s in old_root.all_steps() if s.conclusion[0] == "|-"])
+                new_size = len(proof_root.all_steps())
+                old_size = len(old_root.all_steps())
+    
+                claim.consequent = md.Statement(claim.consequent.label, claim.consequent.tag, claim.consequent.tokens, new_normal_proof)
+                mp.verify_normal_proof(db, claim) # raises assertion error if unverified
+    
+                print("Verified!")
+                print(f"old proof ({old_size} steps): " + " ".join(old_normal_proof))
+                # if new_size > old_size:
+                #     print(old_root.tree_string())
+                print(f"new proof ({new_size} steps): " + " ".join(new_normal_proof))
+                # if new_size > old_size:
+                #     print(proof_root.tree_string())
+                print(f"total time: {total_time:.3f}s")
+                if new_size < old_size:
+                    shortened.append(goal_label)
+                    print("You found one!!!")
+                    input('__')
+    
+                # # print(proof.to_string(term_manager))
+                # print(proof.tree_string())
+                # input('..')
+    
+                goal_proofs[goal_label] = new_normal_proof
 
-        # convert entailment rules to terms, grouped by essential count
-        print("termifying...")
-        entailment_rules = {}
-        for rule in rules["|-"]:
+                with open("ufr.pkl","wb") as f: pk.dump((goal_proofs, goal_times, shortened), f)
 
-            # term conversions
-            essentials = [term_manager.parse(h.tokens[1:], set(rule.mandatory.keys())) for h in rule.essentials]
-            consequent = term_manager.parse(rule.consequent.tokens[1:], set(rule.mandatory.keys()))
-            mandatory = set([term_manager.encode(t) for t in rule.mandatory.keys()])
+    with open("ufr.pkl","rb") as f: (goal_proofs, goal_times, shortened) = pk.load(f)
 
-            # group by essential count
-            if len(essentials) not in entailment_rules: entailment_rules[len(essentials)] = []
-            entailment_rules[len(essentials)].append((rule.consequent.label, mandatory, essentials, consequent))
-
-        print("searching...")
-        proof_root = ids(db, claim, entailment_rules, term_manager, len(claim.essentials)+max_depth)
-
-        total_time = perf_counter()-start_time
-        goal_times.append(total_time)
-
-        if proof_root is None:
-            print("Failure :(")
-            # input('...')
-        else:
-
-            # verify and compare
-            old_root, _ = mp.verify_compressed_proof(db, claim)
-            old_normal_proof = old_root.normal_proof()
-            new_normal_proof = proof_root.normal_proof()
-
-            # new_size = len([s for s in proof_root.all_steps() if s.conclusion[0] == "|-"])
-            # old_size = len([s for s in old_root.all_steps() if s.conclusion[0] == "|-"])
-            new_size = len(proof_root.all_steps())
-            old_size = len(old_root.all_steps())
-
-            claim.consequent = md.Statement(claim.consequent.label, claim.consequent.tag, claim.consequent.tokens, new_normal_proof)
-            mp.verify_normal_proof(db, claim) # raises assertion error if unverified
-
-            print("Verified!")
-            print(f"old proof ({old_size} steps): " + " ".join(old_normal_proof))
-            # if new_size > old_size:
-            #     print(old_root.tree_string())
-            print(f"new proof ({new_size} steps): " + " ".join(new_normal_proof))
-            # if new_size > old_size:
-            #     print(proof_root.tree_string())
-            print(f"total time: {total_time:.3f}s")
-            if new_size < old_size:
-                shortened.append(goal_label)
-                print("You found one!!!")
-                input('__')
-
-            # # print(proof.to_string(term_manager))
-            # print(proof.tree_string())
-            # input('..')
-
-            goal_proofs[goal_label] = new_normal_proof
-
-    print(f"Grand total time = {sum(goal_times)}s, {len(goal_proofs)} of {len(goal_times)} proved, {len(shortened)} shortened:")
+    print(f"Grand total time = {sum(goal_times.values())}s, {len(goal_proofs)} of {len(goal_times)} proved, {len(shortened)} shortened:")
     print(shortened)
 
