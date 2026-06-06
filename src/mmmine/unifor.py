@@ -1,6 +1,6 @@
 import src.metamathpy.proof as mp
-import src.metamathpy.terms as mt
-# import src.metamathpy.cterms as mt
+# import src.metamathpy.terms as mt
+import src.metamathpy.cterms as mt
 
 try:
     profile
@@ -36,6 +36,14 @@ class PartialProof:
         return PartialProof(
             [mt.substitute(a, substitution) for a in self.assertions],
             list(self.justifications), list(self.dependencies), list(self.used))
+
+    def standardize(self, variables, floor):
+        """
+        rename all variables in self so that they remain distinct and all are larger than floor
+            variables: the tokens to be considered variables
+            floor: variable int ids above floor are assumed available
+        for example, floor is the highest int id occurring in rule index
+        """
 
     @profile
     def unify_with(self, terms, index, variables, use_quota):
@@ -298,7 +306,7 @@ class SearchNode:
             # recurse on all valid rule applications
             for partial_proof in self.applications_of(label, essentials, consequent, step_index, variables, min_essentials):
                 child = SearchNode(self.db, self.claim, self.rules, partial_proof, variables, self.term_manager)
-                yield from child.dfs(step_index+1)
+                yield from child.dfs(step_index + 1)
 
 
 @profile

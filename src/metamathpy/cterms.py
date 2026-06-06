@@ -282,13 +282,13 @@ def unify(t1, t2, variables):
             if any(u==v for (u, _) in st): return None
 
             # otherwise incorporate substitution and advance to term tails
-            # s = compose_single(v, st, s)
-            # t1 = substitute_single(t1[1:], v, st)
-            # t2 = substitute_single(t2[n:], v, st)
-            new_s = {v: st}
-            s = compose(new_s, s)
-            t1 = substitute(t1[1:], new_s)
-            t2 = substitute(t2[n:], new_s)
+            s = compose_single(v, st, s)
+            t1 = substitute_single(t1[1:], v, st)
+            t2 = substitute_single(t2[n:], v, st)
+            # new_s = {v: st}
+            # s = compose(new_s, s)
+            # t1 = substitute(t1[1:], new_s)
+            # t2 = substitute(t2[n:], new_s)
 
         # otherwise term heads are distinct constants so fail
         else: return None
