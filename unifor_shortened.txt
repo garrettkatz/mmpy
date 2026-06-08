@@ -28,61 +28,61 @@ pm2.65i
 old proof (8 steps): wps wph wn wph wps pm2.65i.2 con2i wph wps pm2.65i.1 con3i pm2.61i
 new proof (6 steps): wph wph wps wph pm2.65i.2 pm2.65i.1 nsyl3 pm2.01i
 ( wn con2i con3i pm2.61i ) BAEABDFABCGH
-( nsyl3 pm2.01i )          AABADCEF
+( nsyl3 pm2.01i ) AABADCEF
 
 sylnbi
 old proof (9 steps): wph wn wps wn wch wph wps sylnbi.1 notbii sylnbi.2 sylbi
 new proof (7 steps): wps wph wch wph wps sylnbi.1 biimpri sylnbi.2 nsyl5
 ( wn notbii sylbi ) AFBFCABDGEH
-( biimpri nsyl5 )   BACABDFEG
+( biimpri nsyl5 ) BACABDFEG
 
 imp42
 old proof (11 steps): wph wps wch wa wa wth wta wph wps wch wth wta wi imp4.1 imp32 imp
 new proof (10 steps): wph wps wch wa wth wta wph wps wch wth wta wi imp4.1 impd imp31
-( wa wi imp32 imp )  ABCGGDEABCDEHFIJ
+( wa wi imp32 imp ) ABCGGDEABCDEHFIJ
 ( wa wi impd imp31 ) ABCGDEABCDEHFIJ
 
 imp45
 old proof (10 steps): wph wps wch wth wa wa wta wph wps wch wth wta imp4.1 imp4d imp
 new proof (9 steps): wph wps wch wth wa wta wph wps wch wth wta imp4.1 imp4a imp32
-( wa imp4d imp )   ABCDGGEABCDEFHI
+( wa imp4d imp ) ABCDGGEABCDEFHI
 ( wa imp4a imp32 ) ABCDGEABCDEFHI
 
 simplbda
 old proof (9 steps): wph wps wa wch wth wph wps wch wth wa pm3.26bda.1 biimpa simprd
 new proof (7 steps): wph wps wth wch wph wps wth wch pm3.26bda.1 biancomd simprbda
-( wa biimpa simprd )  ABFCDABCDFEGH
+( wa biimpa simprd ) ABFCDABCDFEGH
 ( biancomd simprbda ) ABDCABDCEFG
 
 bianbi
 old proof (10 steps): wph wps wch wa wth wch wa bianbi.1 wps wth wch bianbi.2 anbi1i bitri
 new proof (9 steps): wph wps wch wth bianbi.1 wps wth wb wch bianbi.2 a1i bianim
 ( wa anbi1i bitri ) ABCGDCGEBDCFHI
-( wb a1i bianim )   ABCDEBDGCFHI
+( wb a1i bianim ) ABCDEBDGCFHI
 
 anbiim
 old proof (12 steps): wph wps wa wch wth wph wch wth wi wps anbiim.1 adantr wps wth wch wi wph anbiim.2 adantl impbid
 new proof (9 steps): wps wph wch wth wb wps wph wch wth anbiim.1 anbiim.2 impbid21d impcom
 ( wa wi adantr adantl impbid ) ABGCDACDHBEIBDCHAFJK
-( wb impbid21d impcom )        BACDGBACDEFHI
+( wb impbid21d impcom ) BACDGBACDEFHI
 
 pm2.65da
 old proof (9 steps): wph wps wch wph wps wch pm2.65da.1 ex wph wps wch wn pm2.65da.2 ex pm2.65d
 new proof (8 steps): wph wps wph wps wa wch pm2.65da.1 pm2.65da.2 pm2.65i imnani
-( ex wn pm2.65d )     ABCABCDFABCGEFH
+( ex wn pm2.65d ) ABCABCDFABCGEFH
 ( wa pm2.65i imnani ) ABABFCDEGH
 
 pm4.57
 old proof (9 steps): wph wps wo wph wn wps wn wa wn wph wps oran bicomi
 new proof (8 steps): wph wps wo wph wn wps wn wa wph wps ioran con1bii
-( wo wn wa oran bicomi )   ABCADBDEDABFG
+( wo wn wa oran bicomi ) ABCADBDEDABFG
 ( wo wn wa ioran con1bii ) ABCADBDEABFG
 
 3anan32
 old proof (11 steps): wph wps wch w3a wph wps wa wch wa wph wch wa wps wa wph wps wch df-3an wph wps wch an32 bitri
 new proof (7 steps): wph wps wch w3a wph wch wa wps wph wps wch 3anan12 biancomi
 ( w3a wa df-3an an32 bitri ) ABCDABECEACEBEABCFABCGH
-( w3a wa 3anan12 biancomi )  ABCDACEBABCFG
+( w3a wa 3anan12 biancomi ) ABCDACEBABCFG
 
 syl21anbrc
 old proof (13 steps): wph wps wch wa wth wa wta wph wps wch wth syl21anbrc.1 syl21anbrc.2 syl21anbrc.3 jca31 syl21anbrc.4 sylibr
@@ -94,25 +94,25 @@ ad5ant124
 old proof (12 steps): wph wps wa wta wa wch wa wth wet wph wps wch wth wta ad5ant.1 ad4ant124 adantr
 new proof (10 steps): wph wps wa wch wth wta wet wph wps wch wth ad5ant.1 3expa ad4ant13
 ( wa ad4ant124 adantr ) ABHEHCHDFABCDEGIJ
-( wa 3expa ad4ant13 )   ABHCDEFABCDGIJ
+( wa 3expa ad4ant13 ) ABHCDEFABCDGIJ
 
 ad5ant125
 old proof (12 steps): wph wps wa wta wet wch wth wph wps wa wch wth wi wta wet wph wps wch wth ad5ant.1 3expia 2a1d imp41
 new proof (10 steps): wph wps wa wch wth wta wet wph wps wch wth ad5ant.1 3expa ad4ant14
 ( wa wi 3expia 2a1d imp41 ) ABHZEFCDMCDIEFABCDGJKL
-( wa 3expa ad4ant14 )       ABHCDEFABCDGIJ
+( wa 3expa ad4ant14 ) ABHCDEFABCDGIJ
 
 ad5ant134
 old proof (12 steps): wph wta wa wps wa wch wa wth wet wph wps wch wth wta ad5ant.1 ad4ant134 adantr
 new proof (9 steps): wph wps wch wet wth wta wph wps wch wth wet ad5ant.1 ad4ant123 adantl3r
 ( wa ad4ant134 adantr ) AEHBHCHDFABCDEGIJ
-( ad4ant123 adantl3r )  ABCFDEABCDFGHI
+( ad4ant123 adantl3r ) ABCFDEABCDFGHI
 
 ad5ant135
 old proof (11 steps): wph wta wa wps wa wch wth wet wph wps wch wth wta ad5ant.1 ad4ant134 adantlr
 new proof (9 steps): wph wps wet wch wth wta wph wps wch wth wet ad5ant.1 ad4ant124 adantl3r
 ( wa ad4ant134 adantlr ) AEHBHCDFABCDEGIJ
-( ad4ant124 adantl3r )   ABFCDEABCDFGHI
+( ad4ant124 adantl3r ) ABFCDEABCDFGHI
 
 ======= Not officially shorter =========
 
