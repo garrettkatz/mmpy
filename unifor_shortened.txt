@@ -140,7 +140,17 @@ new proof (5 steps): wph wps wps wn wph wps wn idd orrd
 ( wn wo exmid a1i ) BBCDABEF
 ( wn idd orrd )     ABBCZAFDE
 
-======= Compression not checked yet ========
+notnotri: was a valid shorter proof, but similar shortening was already known (in fact fewer steps when you count wff steps): notnotriALT, and anyway uses more axioms
+
+======= Compression not checked yet, axiom usage not checked yet ========
+check axiom usage before/after: sh tr looinv /ax
 
 unifor max depth 2:
 
+unifor max depth 3:
+
+looinv -- but does it change axiom usage?
+old proof (9 steps): wph wps wi wps wi wps wph wi wph wps wi wph wi wph wph wps wi wps wph imim1 wph wps peirce syl6
+new proof (8 steps): wph wps wi wps wps wph wi wph wi wph wps wps wph wi pm2.521g2 wps wph pm2.27 ja
+( wi imim1 peirce syl6 )   ABCZBCBACGACAGBADABEF
+( wi pm2.521g2 pm2.27 ja ) ABCBBACZACABGDBAEF

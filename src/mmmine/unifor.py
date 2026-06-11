@@ -335,7 +335,7 @@ if __name__ == "__main__":
     import src.metamathpy.setmm as ms
     import src.metamathpy.database as md
 
-    max_depth = 2
+    max_depth = 3
 
     do_run = True
     exclude_list = ms.new_usage_discouraged()
@@ -343,6 +343,7 @@ if __name__ == "__main__":
     stop_after = 100
 
     db = ms.load_pl()
+    # goal_labels = ["notnotri"]
     # goal_labels = ["expt"]
     # goal_labels = ["peirceroll"]
     # goal_labels = ["mpisyl"]

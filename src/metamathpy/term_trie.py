@@ -112,6 +112,8 @@ class TermTrieNode:
 
             # at this point term heads do unify, yield nothing and continue to next branch
 
+        # ===============
+
         # # build up substitution while consuming term heads until empty
         # s = {}
         # while len(t1) > 0 and len(t2) > 0: t1 becomes self, t2 becomes term

@@ -248,12 +248,14 @@ class TermManager:
             return steps[conclusion]
 
 @profile
-def unify(t1, t2, variables):
+# def unify(t1, t2, variables):
+def unify_eager(t1, t2, variables):
     """
     unify two terms
         t1, t2: terms to unify, assumed to be standardized apart
         variables: set of integer ids representing substitutable variables
     returns substitution dictionary if successful else None
+    eager version: substitute tails every iteration
     """
     # build up substitution while consuming term heads until empty
     s = {}
@@ -285,6 +287,71 @@ def unify(t1, t2, variables):
             s = compose_single(v, st, s)
             t1 = substitute_single(t1[1:], v, st)
             t2 = substitute_single(t2[n:], v, st)
+            # new_s = {v: st}
+            # s = compose(new_s, s)
+            # t1 = substitute(t1[1:], new_s)
+            # t2 = substitute(t2[n:], new_s)
+
+        # otherwise term heads are distinct constants so fail
+        else: return None
+
+    # success if both terms fully consumed
+    if len(t1) == len(t2) == 0: return s
+
+    # otherwise failure
+    return None
+
+def unify(t1, t2, variables):
+# def unify_lazy(t1, t2, variables):
+    """
+    unify two terms
+        t1, t2: terms to unify, assumed to be standardized apart
+        variables: set of integer ids representing substitutable variables
+    returns substitution dictionary if successful else None
+    lazy version: only substitute heads and subterms once needed
+    """
+    # build up substitution while consuming term heads until empty
+    s = {}
+    while len(t1) > 0 and len(t2) > 0:
+
+        # lazy substitution
+        if t1[0][0] in s:
+            t1 = s[t1[0][0]] + t1[1:]
+            continue
+
+        if t2[0][0] in s:
+            t2 = s[t2[0][0]] + t2[1:]
+            continue
+
+        # if heads match, advance to tails
+        if t1[0][0] == t2[0][0]:
+            t1 = t1[1:]
+            t2 = t2[1:]
+            continue
+
+        # check if either term head is a variable
+        v1 = (t1[0][0] in variables)
+        v2 = (t2[0][0] in variables)
+        if v1 or v2:
+
+            # swap if needed so t1 has the variable head
+            if not v1: t1, t2 = t2, t1
+
+            # extract variable and subterm
+            v = t1[0][0] # variable integer id
+            n = t2[0][1] # length of replacement term
+            st = t2[:n] # replacement term
+            st = substitute(st, s) # lazy substitution
+
+            # fail if v occurs in st
+            if any(u==v for (u, _) in st): return None
+
+            # otherwise incorporate substitution and advance to term tails
+            s = compose_single(v, st, s)
+            t1 = t1[1:]
+            t2 = t2[n:]
+            # t1 = substitute_single(t1[1:], v, st)
+            # t2 = substitute_single(t2[n:], v, st)
             # new_s = {v: st}
             # s = compose(new_s, s)
             # t1 = substitute(t1[1:], new_s)
