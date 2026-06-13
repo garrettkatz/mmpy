@@ -1,11 +1,8 @@
 """
-term is represented as np.stack([ints, lens]).T where
+term is represented as [...,[ints[i], lens[i]],...,]
     ints[i] is integer id of token at position i
     lens[i] is length of subterm starting at position i
 """
-import numpy as np
-np.seterr(over='raise') # for variable index proliferation
-
 try:
     profile
 except NameError:
@@ -21,10 +18,7 @@ def rename(term, substitution):
     used for standardizing apart, faster than substitute() below
     substitution = {old int id: new int id, ...}
     """
-    renamed = term.copy()
-    for (u,v) in substitution.items():
-        renamed[(term[:,0] == u),0] = v
-    return renamed
+    return [[substitution.get(u, u), n] for (u, n) in term]
 
 @profile
 def substitute(term, substitution):
@@ -37,50 +31,39 @@ def substitute(term, substitution):
     # empty terms
     if len(term) == 0: return term
 
-    # check if anything is being replaced
-    replacement_index = [i for i in range(len(term)) if term[i,0] in substitution]
-    if len(replacement_index) == 0: return term
-
-    # update lengths
-    term = term.copy()
-    start = np.arange(len(term))
-    stop = start + term[:,1]
-    for i in replacement_index:
-        bump = len(substitution[term[i,0]]) - 1 # -1 for singleton term being replaced
-        inscope = (start <= i) & (i < stop)
-        term[inscope,1] += bump
-
-    # insert replacements
-    chunks = [substitution[term[i,0]] if i in replacement_index else term[i:i+1] for i in range(len(term))]
-    return np.concatenate(chunks, axis=0)
+    result = []
+    for (u,n) in term:
+        if u in substitution:
+            t = substitution[u]
+            for i in range(len(result)):
+                if i + result[i][1] > len(result):
+                    result[i][1] = result[i][1] + len(t) - 1 # -1 for singleton being replaced
+        else:
+            t = [[u,n]]
+        result.extend(t)
+    return result
 
 @profile
 def substitute_single(term, v, t):
     """
     direct substitution into term
-    substitution = {v: t}
+    substitution = {int id: replacement term, ...}
     returns new term (copied unless no changes)
     """
 
     # empty terms
     if len(term) == 0: return term
 
-    # check if anything is being replaced
-    replacement_index = [i for i in range(len(term)) if term[i,0] == v]
-    if len(replacement_index) == 0: return term
-
-    # update lengths
-    term = term.copy()
-    start = np.arange(len(term))
-    stop = start + term[:,1]
-    for i in replacement_index:
-        bump = len(t) - 1 # -1 for singleton term being replaced
-        inscope = (start <= i) & (i < stop)
-        term[inscope,1] += bump
-
-    # insert replacements
-    chunks = [t if i in replacement_index else term[i:i+1] for i in range(len(term))]
-    return np.concatenate(chunks, axis=0)
+    result = []
+    for (u,n) in term:
+        if u == v:
+            for i in range(len(result)):
+                if i + result[i][1] > len(result):
+                    result[i][1] = result[i][1] + len(t) - 1 # -1 for singleton being replaced
+            result.extend(t)
+        else:
+            result.append([u,n])
+    return result
 
 @profile
 def compose(s2, s1):
@@ -90,7 +73,7 @@ def compose(s2, s1):
     s21 = {}
     for k, v in s1.items():
         t = substitute(v, s2)
-        if t[0,0] != k: s21[k] = t
+        if t[0][0] != k: s21[k] = t
     for k, v in s2.items():
         if k not in s1: s21[k] = v
     return s21
@@ -103,12 +86,12 @@ def compose_single(v2, t2, s1):
     s21 = {}
     for v1, t1 in s1.items():
         t = substitute_single(t1, v2, t2)
-        if t[0,0] != v1: s21[v1] = t
+        if t[0][0] != v1: s21[v1] = t
     if v2 not in s1: s21[v2] = t2
     return s21
 
 def singleton_term(int_id):
-    return np.array([[int_id, 1]])
+    return [[int_id, 1]]
 
 class TermManager:
     def __init__(self, rules):
@@ -134,21 +117,21 @@ class TermManager:
         return self.decoder.get(i, f"t{i}")
 
     def serialize(self, term):
-        return tuple(map(self.decode, term[:,0]))
+        return tuple([self.decode(u) for (u, _) in term])
 
     def token_term(self, token):
         """
         Encodes token then wraps in a singleton term
         """
-        return np.array([[self.encode(token), 1]])
+        return [[self.encode(token), 1]]
 
     def rule_term(self, rule_index):
         """
         Term for a rule with no nested structure
         """
         rule_tokens = self.rules[rule_index].consequent.tokens[1:] # omit typecode
-        term = np.array([[self.encode(token), 1] for token in rule_tokens])
-        term[0,1] = len(term)
+        term = [[self.encode(token), 1] for token in rule_tokens]
+        term[0][1] = len(term)
         return term
 
     def parse(self, tokens, sentinels):
@@ -203,7 +186,7 @@ class TermManager:
                 # update substitution with parsed subterm
                 v = self.encode(tok)
                 if v not in substitution: substitution[v] = subterm
-                else: assert np.array_equal(substitution[v], subterm)
+                else: assert substitution[v] == subterm
     
                 # advance past parsed subterm
                 i += len(subterm)
@@ -217,12 +200,6 @@ class TermManager:
         # at this point the rule parsed successfully, form term and apply substitution
         return substitute(self.rule_term(rule_index), substitution)
 
-    # def bind(self, tokens, variables, term):
-    #     """
-    #     bind variables in a token sequence to match a term
-    #     fails if the term is not an instance of the token sequence
-    #     returns substitution or None if failure
-    #     """
     def instantiate(self, tokens, variables, term):
         """
         find substitution of variables in tokens that instantiate term
@@ -234,10 +211,10 @@ class TermManager:
         i, s = 0, {}
         for tok in tokens:
             if tok in variables:
-                s[tok] = term[i:i+term[i,1]]
-                i += term[i,1]
+                s[tok] = term[i:i+term[i][1]]
+                i += term[i][1]
             else:
-                if self.encode(tok) != term[i,0]: return None
+                if self.encode(tok) != term[i][0]: return None
                 i += 1
         return s
 
@@ -248,7 +225,7 @@ class TermManager:
         """
 
         if len(term) == 1:
-            v = self.decode(term[0,0])
+            v = self.decode(term[0][0])
             consequent = md.Statement('w'+v, '$a', ("wff", v), ())
             rule = md.Rule(consequent, (), (), (), (v,))
             rule.finalize()
@@ -258,7 +235,6 @@ class TermManager:
             return steps[conclusion]
 
         for rule in self.rules:
-            # s = self.bind(rule.consequent.tokens[1:], rule.mandatory, term)
             s = self.instantiate(rule.consequent.tokens[1:], rule.mandatory, term)
             if s is None: continue
 
@@ -272,47 +248,114 @@ class TermManager:
             return steps[conclusion]
 
 @profile
-def unify(t1, t2, variables):
+# def unify(t1, t2, variables):
+def unify_eager(t1, t2, variables):
     """
     unify two terms
         t1, t2: terms to unify, assumed to be standardized apart
         variables: set of integer ids representing substitutable variables
     returns substitution dictionary if successful else None
+    eager version: substitute tails every iteration
     """
     # build up substitution while consuming term heads until empty
     s = {}
     while len(t1) > 0 and len(t2) > 0:
 
         # if heads match, advance to tails
-        if t1[0,0] == t2[0,0]:
+        if t1[0][0] == t2[0][0]:
             t1 = t1[1:]
             t2 = t2[1:]
             continue
 
         # check if either term head is a variable
-        v1 = (t1[0,0] in variables)
-        v2 = (t2[0,0] in variables)
+        v1 = (t1[0][0] in variables)
+        v2 = (t2[0][0] in variables)
         if v1 or v2:
 
             # swap if needed so t1 has the variable head
             if not v1: t1, t2 = t2, t1
 
             # extract variable and subterm
-            v = t1[0,0] # variable integer id
-            n = t2[0,1] # length of replacement term
+            v = t1[0][0] # variable integer id
+            n = t2[0][1] # length of replacement term
             st = t2[:n] # replacement term
 
             # fail if v occurs in st
-            if v in st[:,0]: return None
+            if any(u==v for (u, _) in st): return None
 
             # otherwise incorporate substitution and advance to term tails
-            # s = compose_single(v, st, s)
+            s = compose_single(v, st, s)
+            t1 = substitute_single(t1[1:], v, st)
+            t2 = substitute_single(t2[n:], v, st)
+            # new_s = {v: st}
+            # s = compose(new_s, s)
+            # t1 = substitute(t1[1:], new_s)
+            # t2 = substitute(t2[n:], new_s)
+
+        # otherwise term heads are distinct constants so fail
+        else: return None
+
+    # success if both terms fully consumed
+    if len(t1) == len(t2) == 0: return s
+
+    # otherwise failure
+    return None
+
+def unify(t1, t2, variables):
+# def unify_lazy(t1, t2, variables):
+    """
+    unify two terms
+        t1, t2: terms to unify, assumed to be standardized apart
+        variables: set of integer ids representing substitutable variables
+    returns substitution dictionary if successful else None
+    lazy version: only substitute heads and subterms once needed
+    """
+    # build up substitution while consuming term heads until empty
+    s = {}
+    while len(t1) > 0 and len(t2) > 0:
+
+        # lazy substitution
+        if t1[0][0] in s:
+            t1 = s[t1[0][0]] + t1[1:]
+            continue
+
+        if t2[0][0] in s:
+            t2 = s[t2[0][0]] + t2[1:]
+            continue
+
+        # if heads match, advance to tails
+        if t1[0][0] == t2[0][0]:
+            t1 = t1[1:]
+            t2 = t2[1:]
+            continue
+
+        # check if either term head is a variable
+        v1 = (t1[0][0] in variables)
+        v2 = (t2[0][0] in variables)
+        if v1 or v2:
+
+            # swap if needed so t1 has the variable head
+            if not v1: t1, t2 = t2, t1
+
+            # extract variable and subterm
+            v = t1[0][0] # variable integer id
+            n = t2[0][1] # length of replacement term
+            st = t2[:n] # replacement term
+            st = substitute(st, s) # lazy substitution
+
+            # fail if v occurs in st
+            if any(u==v for (u, _) in st): return None
+
+            # otherwise incorporate substitution and advance to term tails
+            s = compose_single(v, st, s)
+            t1 = t1[1:]
+            t2 = t2[n:]
             # t1 = substitute_single(t1[1:], v, st)
             # t2 = substitute_single(t2[n:], v, st)
-            new_s = {v: st}
-            s = compose(new_s, s)
-            t1 = substitute(t1[1:], new_s)
-            t2 = substitute(t2[n:], new_s)
+            # new_s = {v: st}
+            # s = compose(new_s, s)
+            # t1 = substitute(t1[1:], new_s)
+            # t2 = substitute(t2[n:], new_s)
 
         # otherwise term heads are distinct constants so fail
         else: return None
@@ -325,13 +368,14 @@ def unify(t1, t2, variables):
 
 if __name__ == "__main__":
 
+    import numpy as np
     import src.metamathpy.setmm as ms
     db = ms.load_pl()
     rules = db.rules_up_to("mp2")
 
-    t1 = np.array([[1,0,0],[3,1,1]]).T
+    t1 = np.array([[1,0,0],[3,1,1]]).T.tolist()
     t2 = substitute(t1, {0: t1})
-    assert np.array_equal(t2, np.array([[1,1,0,0,1,0,0], [7,3,1,1,3,1,1]]).T)
+    assert t2 == np.array([[1,1,0,0,1,0,0], [7,3,1,1,3,1,1]]).T.tolist()
 
     tm = TermManager([rule for rule in rules["wff"] if rule.consequent.tag == "$a"])
     t0 = tm.rule_term(0)
@@ -367,4 +411,6 @@ if __name__ == "__main__":
 
     s = unify(t2, t3, set(map(tm.encode, ["ph","ch","ta"])))
     assert s is None
+
+
 

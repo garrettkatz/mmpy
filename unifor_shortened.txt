@@ -22,13 +22,13 @@ new proof (10 steps): wph wps wph wps wn wi wn wph wps wn wi wn wch wi wch wph w
 ( wn wi pm3.2im imim1d com12 ) AABDEDZCEBCEABICABFGH
 ( wn wi pm3.2im id     syl9r ) ABABDEDZICEZCABFJGH
 
-======= Officially shorter, pull request not submitted yet =========
-
 pm2.65i
 old proof (8 steps): wps wph wn wph wps pm2.65i.2 con2i wph wps pm2.65i.1 con3i pm2.61i
 new proof (6 steps): wph wph wps wph pm2.65i.2 pm2.65i.1 nsyl3 pm2.01i
 ( wn con2i con3i pm2.61i ) BAEABDFABCGH
 ( nsyl3 pm2.01i ) AABADCEF
+
+======= Officially shorter, pull request not submitted yet =========
 
 sylnbi
 old proof (9 steps): wph wn wps wn wch wph wps sylnbi.1 notbii sylnbi.2 sylbi
@@ -91,24 +91,32 @@ new proof (12 steps): wph wps wch wa wth wta wph wps wch syl21anbrc.1 syl21anbrc
 ( wa jca sylanbrc ) ABCJDEABCFGKHIL
 
 ad5ant124
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
 old proof (12 steps): wph wps wa wta wa wch wa wth wet wph wps wch wth wta ad5ant.1 ad4ant124 adantr
 new proof (10 steps): wph wps wa wch wth wta wet wph wps wch wth ad5ant.1 3expa ad4ant13
 ( wa ad4ant124 adantr ) ABHEHCHDFABCDEGIJ
 ( wa 3expa ad4ant13 ) ABHCDEFABCDGIJ
 
 ad5ant125
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
 old proof (12 steps): wph wps wa wta wet wch wth wph wps wa wch wth wi wta wet wph wps wch wth ad5ant.1 3expia 2a1d imp41
 new proof (10 steps): wph wps wa wch wth wta wet wph wps wch wth ad5ant.1 3expa ad4ant14
 ( wa wi 3expia 2a1d imp41 ) ABHZEFCDMCDIEFABCDGJKL
 ( wa 3expa ad4ant14 ) ABHCDEFABCDGIJ
 
 ad5ant134
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
 old proof (12 steps): wph wta wa wps wa wch wa wth wet wph wps wch wth wta ad5ant.1 ad4ant134 adantr
 new proof (9 steps): wph wps wch wet wth wta wph wps wch wth wet ad5ant.1 ad4ant123 adantl3r
 ( wa ad4ant134 adantr ) AEHBHCHDFABCDEGIJ
 ( ad4ant123 adantl3r ) ABCFDEABCDFGHI
 
 ad5ant135
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
 old proof (11 steps): wph wta wa wps wa wch wth wet wph wps wch wth wta ad5ant.1 ad4ant134 adantlr
 new proof (9 steps): wph wps wet wch wth wta wph wps wch wth wet ad5ant.1 ad4ant124 adantl3r
 ( wa ad4ant134 adantlr ) AEHBHCDFABCDEGIJ
@@ -152,5 +160,5 @@ unifor max depth 3:
 looinv -- but does it change axiom usage?
 old proof (9 steps): wph wps wi wps wi wps wph wi wph wps wi wph wi wph wph wps wi wps wph imim1 wph wps peirce syl6
 new proof (8 steps): wph wps wi wps wps wph wi wph wi wph wps wps wph wi pm2.521g2 wps wph pm2.27 ja
-( wi imim1 peirce syl6 )   ABCZBCBACGACAGBADABEF
+( wi imim1 peirce syl6 ) ABCZBCBACGACAGBADABEF
 ( wi pm2.521g2 pm2.27 ja ) ABCBBACZACABGDBAEF

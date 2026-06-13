@@ -1,6 +1,5 @@
 import src.metamathpy.proof as mp
-# import src.metamathpy.terms as mt
-import src.metamathpy.cterms as mt
+import src.metamathpy.terms as mt
 
 try:
     profile

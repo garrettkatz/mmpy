@@ -8,7 +8,7 @@ except NameError:
 
 import src.metamathpy.database as md
 import src.metamathpy.proof as mp
-import src.metamathpy.cterms as mt
+import src.metamathpy.terms as mt
 
 class TermTrieNode:
 
