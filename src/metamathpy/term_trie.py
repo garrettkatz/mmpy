@@ -16,11 +16,13 @@ class TermTrieNode:
         self.result = result
         self.branches = {}
 
-    def __str__(self, prefix=""):
-        s = [f"{prefix}<{self.result}>"]
-        for (t, n), child in self.branches.items():
-            s.append(f"{prefix} [{t},{n}] {child.__str__(prefix+' ')}")
-        return "\n".join(s)        
+    def tree_string(self, term_manager, prefix=""):
+        if len(self.branches) == 0: return str(self.result)
+        s = ["" if self.result is None else str(self.result)]
+        for (t,n), child in self.branches.items():
+            cs = child.tree_string(term_manager, prefix+" ")
+            s.append(f"{prefix}{tm.decode(t)} [{t},:{n}] {cs}")
+        return "\n".join(s)
 
     def incorporate(self, term, result):
 
@@ -90,22 +92,25 @@ class TermTrieNode:
         return node
 
     @profile
-    def unifications_with(self, term, variables, sub=None):
+    def unifications_with(self, term, variables, sub=None, path_term=None):
         """
         yield unifications of terms in self with given term
         assumes self and term are standardized apart
         variables: set of integer ids representing substitutable variables
         sub: substitution accumulator (defaults to empty)
-        yields substitutions and index data for successfully unifying leaves
+        path_term: path term accumulator (defaults to empty)
+        yields accumulated (sub, path_term, index data) for successfully unifying leaves
         """
 
         # defaults
         if sub is None:
             sub = {}
+        if path_term is None:
+            path_term = []
 
         # base cases
         if len(term) == len(self.branches) == 0:
-            yield (sub, self.result)
+            yield (sub, path_term, self.result)
             print("goodbase")
             return
 
@@ -120,7 +125,7 @@ class TermTrieNode:
             term = sub[term[0][0]] + term[1:]
             print(f"{term[0][0]} was in sub, lazy sub recursing on:")
             print(term)
-            yield from self.unifications_with(term, variables, sub)
+            yield from self.unifications_with(term, variables, sub, path_term)
             return
 
         # recurse on self's children
@@ -132,12 +137,12 @@ class TermTrieNode:
             if tok in sub:
                 print(f"tok {tok} in sub {sub}")
                 subtrie = child.prepend(sub[tok])
-                yield from subtrie.unifications_with(term, variables, sub)
+                yield from subtrie.unifications_with(term, variables, sub, path_term)
 
             # does tok match term head?
             elif tok == term[0][0]:
                 print(f"tok {tok} == term[0][0] {term[0][0]}")
-                yield from child.unifications_with(term[1:], variables, sub)
+                yield from child.unifications_with(term[1:], variables, sub, path_term + [[tok, n]])
                     
             # can tok be replaced?
             elif tok in variables:
@@ -151,7 +156,7 @@ class TermTrieNode:
     
                 # otherwise incorporate into substitution and advance to tails
                 new_sub = mt.compose_single(tok, replacement, sub)  # result of performing substitution sub followed by {tok: replacement}
-                yield from child.unifications_with(tail, variables, new_sub)
+                yield from child.unifications_with(tail, variables, new_sub, path_term + [[tok, n]])
 
             # can term head be replaced?
             elif term[0][0] in variables:
@@ -174,7 +179,7 @@ class TermTrieNode:
                     new_sub = mt.compose_single(v, replacement, sub)
                     print(f" occurs check passed, new sub:")
                     print(new_sub)
-                    yield from node.unifications_with(term[1:], variables, new_sub)
+                    yield from node.unifications_with(term[1:], variables, new_sub, path_term + replacement)
 
             # at this point heads do unify, yield nothing and continue to next branch
             # else: continue # noop
@@ -251,7 +256,7 @@ if __name__ == "__main__":
     t1 = tm.parse("( ph -> ps )".split(), ["ph","ps"])
 
     trie = TermTrieNode()
-    print(trie)
+    print(trie.tree_string(tm))
     trie.incorporate([[0,2],[1,1]], "one")
     trie.incorporate([[0,2],[10,1]], "done")
     trie.incorporate([[0,1],[3,3]], "tone")
@@ -259,7 +264,7 @@ if __name__ == "__main__":
     trie.incorporate([[3,5],[6,6]], "6tone")
     trie.incorporate([[0,2],[1,1],[22,2]], "bone")
     # trie.incorporate([[3,5]], "crash!")
-    print(trie)
+    print(trie.tree_string(tm))
 
     # this worked but redo with tm.parsed versions, already started above
     trie = TermTrieNode()
@@ -299,7 +304,7 @@ if __name__ == "__main__":
         trie.incorporate(term, label)
 
     trie_vars = tuple(tm.encode(v) for v in ("ph","ps","ch"))
-    print(trie)
+    print(trie.tree_string(tm))
 
     for (toks, variables, label) in data:
         term = tm.parse(toks.split(), variables)
@@ -311,7 +316,7 @@ if __name__ == "__main__":
     # singleton variable term should unify with all
     term = tm.parse(("ta",), ("ta",))
     print(term)
-    subs, results = zip(*trie.unifications_with(term, (term[0][0],) + trie_vars))
+    subs, path_terms, results = zip(*trie.unifications_with(term, (term[0][0],) + trie_vars))
     assert len(subs) == len(data)
     for (toks, variables, label) in data:
         assert label in results
@@ -325,7 +330,7 @@ if __name__ == "__main__":
 
     # special cases, standardized apart
     print("\n special cases \n")
-    print(trie)
+    print(trie.tree_string(tm))
     tests = [
         ["( ta -> ta )", ("ta",), ("id","wi")],
         ["( ta -> et )", ("ta","et"), ("wi", "ax-1", "ax-2", "ax-3", "id")],
@@ -345,7 +350,7 @@ if __name__ == "__main__":
             assert len(emptygen) == 0
             subs, results = (), ()
         else:
-            subs, results = zip(*trie.unifications_with(term, term_vars + trie_vars))
+            subs, path_terms, results = zip(*trie.unifications_with(term, term_vars + trie_vars))
         print(sorted(results))
         print(sorted(labels))
         for sub, res in zip(subs, results):
@@ -354,7 +359,36 @@ if __name__ == "__main__":
             dterm = tm.parse(data[idx][0].split(), data[idx][1])
             assert mt.substitute(dterm, sub) == mt.substitute(term, sub)
         assert set(results) == set(labels)
-        
 
     print("bigger tests passed")
 
+    trie = TermTrieNode()
+    trie_vars = set()
+    for rule in rules["wff"]:
+        if rule.consequent.tag != "$a": continue
+        trie_vars |= set([tm.encode(v) for v in rule.mandatory])
+        term = tm.parse(rule.consequent.tokens[1:], set(rule.mandatory.keys()))
+        trie.incorporate(term, rule.consequent.label)
+
+    for rule in rules["wff"]:
+        if rule.consequent.tag != "$a": continue
+        term = tm.parse(rule.consequent.tokens[1:], set(rule.mandatory.keys()))
+        term_vars = {tm.encode(v) for v in rule.mandatory}
+
+        # standardize apart term
+        term, term_vars = tm.standardize_apart(trie_vars, term, term_vars)
+
+        num = 0
+        for (sub, path_term, res) in trie.unifications_with(term, term_vars | trie_vars):
+            num += 1
+            assert res == rule.consequent.label
+            print('term'," ".join(tm.serialize(term)))
+            print('term',term)
+            print('pterm'," ".join(tm.serialize(path_term)))
+            print('pterm',path_term)
+            print('sub',sub)
+            assert mt.substitute(term, sub) == mt.substitute(path_term, sub)
+
+    print(trie.tree_string(tm))
+
+    

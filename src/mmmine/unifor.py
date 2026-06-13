@@ -43,6 +43,7 @@ class PartialProof:
             floor: variable int ids above floor are assumed available
         for example, floor is the highest int id occurring in rule index
         """
+        pass
 
     @profile
     def unify_with(self, terms, index, variables, use_quota):

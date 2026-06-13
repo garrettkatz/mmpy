@@ -123,6 +123,27 @@ class TermManager:
     def serialize(self, term):
         return tuple([self.decode(u) for (u, _) in term])
 
+    def standardize_apart(self, used_variables, term, term_variables):
+        """
+        Standardize term apart from used variables
+            used_variables: a collection of the used variable integer ids
+            term: the term to be standardized apart
+            term_variables: a collection of the variable integer ids in term (will be renamed)
+        Returns standardized versions of (term, term_variables)
+        """
+        # get integer id offset to the contiguous unused range, including constant integer ids in self
+        offset = max(max(used_variables), max(self.encoder.values())) + 1
+
+        # build the standarizing rename map, consecutively from offset
+        standardizer = {v: u + offset for (u,v) in enumerate(term_variables)}
+
+        # replace the standardized variables
+        term = rename(term, standardizer)
+        term_variables = {standardizer[v] for v in term_variables}
+
+        return term, term_variables
+
+
     def token_term(self, token):
         """
         Encodes token then wraps in a singleton term
