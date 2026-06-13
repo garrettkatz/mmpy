@@ -35,6 +35,7 @@ def substitute(term, substitution):
     for (u,n) in term:
         if u in substitution:
             t = substitution[u]
+            # update lengths of subterms spanning u
             for i in range(len(result)):
                 if i + result[i][1] > len(result):
                     result[i][1] = result[i][1] + len(t) - 1 # -1 for singleton being replaced
@@ -107,6 +108,9 @@ class TermManager:
                 self.encode(token)
 
     def encode(self, token):
+        """
+        Return integer id encoding token, allocating new one if needed
+        """
         if token not in self.encoder:
             n = len(self.encoder)
             self.encoder[token] = n

@@ -36,22 +36,26 @@ class TermTrieNode:
         self.branches[head].incorporate(term[1:], result)
 
     def look_ahead(self, n):
-        this needs to also yield the (token,n) lead
+        """
+        yields (term, node) where
+           node is a descendent at depth n
+           term is the leading term associated with the path from self to node
+        """
         if n == 0:
             yield [], self
         else:
-            for (tok, n), child in self.branches.items():
+            for head, child in self.branches.items():
                 for term, node in child.look_ahead(n-1):
-                    yield [[tok,n]] + term, node
-                # yield from child.look_ahead(n-1)
+                    yield [list(head)] + term, node
 
     def instantiate(self, variables, term):
         """
         find substitution of a term indexed in self that instantiate provided term
         "one-way" version of unification
         for example, term = substitution of a rule statement indexed in self
-        fails if the term is not an instance of the token sequence
+        fails if the term is not an instance of any term in the trie
         returns substitution and index data at self's corresponding leaf, or None if failure
+        todo: generate all instead of returning at most one?
         """
         if len(term) == len(self.branches) == 0:
             return {}, self.result
@@ -67,10 +71,23 @@ class TermTrieNode:
                     if sub is not None:
                         sub[tok] = term[:n]
                         return sub, result
-                return None, None
             else:
-                if tok != term[0][0]: return None, None
-                return child.instantiate(variables, term[1:])
+                if tok != term[0][0]: continue
+                sub, result = child.instantiate(variables, term[1:])
+                if sub is not None: return sub, result
+
+        return None, None
+
+    def prepend(self, term):
+        """
+        prepend a chain of trie nodes for term ending at self
+        returns the root of the chain (self if term is empty)
+        used for lazy substitution in unifications_with
+        """
+        if len(term) == 0: return self
+        node = TermTrieNode()
+        node.branches[tuple(term[0])] = self.prepend(term[1:])
+        return node
 
     @profile
     def unifications_with(self, term, variables, sub=None):
@@ -82,72 +99,90 @@ class TermTrieNode:
         yields substitutions and index data for successfully unifying leaves
         """
 
-        also here doublecheck any written brainstorms about this
-
         # defaults
         if sub is None:
             sub = {}
 
         # base cases
         if len(term) == len(self.branches) == 0:
-            yield ({}, self.result)
+            yield (sub, self.result)
+            print("goodbase")
             return
 
         if (len(term) == 0) or (len(self.branches) == 0):
+            print("badbase")
+            print(term)
+            print(self.branches)
             return
 
-        # recursive yields
+        # lazy substitution on term
+        if term[0][0] in sub:
+            term = sub[term[0][0]] + term[1:]
+            print(f"{term[0][0]} was in sub, lazy sub recursing on:")
+            print(term)
+            yield from self.unifications_with(term, variables, sub)
+            return
+
+        # recurse on self's children
+        print(f"no bases, looping over {list(self.branches.items())}, term is:")
+        print(term)
         for (tok, n), child in self.branches.items():
 
-            # does tok need to be replaced?
+            # lazy substitution on tok
             if tok in sub:
-
-                # unify tok's replacement with leading term
-                head = sub[tok]
-                u = mt.unify(head, term[:len(head)], variables)
-
-                # prune if no unifier
-                if u is None: continue
-
-                # yield from tail
-                # yield from child.unifications_with(term[len(head):], variables, sub | u) # the values of other=u take priority when sub and u share keys ???<< is this right >>???
-                yield from child.unifications_with(term[len(head):], variables, mt.compose(u, sub)) # compose(u, sub): performing substitution sub followed by u
+                print(f"tok {tok} in sub {sub}")
+                subtrie = child.prepend(sub[tok])
+                yield from subtrie.unifications_with(term, variables, sub)
 
             # does tok match term head?
             elif tok == term[0][0]:
-                yield from child.unifications_with(term[1:], variables, sub):
+                print(f"tok {tok} == term[0][0] {term[0][0]}")
+                yield from child.unifications_with(term[1:], variables, sub)
                     
             # can tok be replaced?
             elif tok in variables:
-                replacement = term[:term[0][1]]
+                print(f"tok {tok} in variables {variables}")
+                rep_len = term[0][1]
+                replacement, tail = term[:rep_len], term[rep_len:]
+                replacement = mt.substitute(replacement, sub) # lazy substitution
     
                 # do not yield if variable tok occurs in its replacement
                 if any(u==tok for (u, _) in replacement): continue
     
-                # otherwise incorporate substitution and advance to tails
-                # yield from child.unifications_with(term[term[0][1]:], variables, sub | {tok: replacement})  # the value replacement takes priority when tok is in sub ???<< is this right >>???
-                yield from child.unifications_with(term[term[0][1]:], variables, mt.compose_single(tok, replacement, sub)  # compose_single(tok, replacement, sub): perform substitution sub followed by {tok: replacement}
+                # otherwise incorporate into substitution and advance to tails
+                new_sub = mt.compose_single(tok, replacement, sub)  # result of performing substitution sub followed by {tok: replacement}
+                yield from child.unifications_with(tail, variables, new_sub)
 
             # can term head be replaced?
             elif term[0][0] in variables:
+                print(f"term[0][0] {term[0][0]} in variables {variables}")
                 for replacement, node in child.look_ahead(n-1):
 
                     # extract variable and replacement
                     v = term[0][0] # variable integer id
+                    replacement = [[tok, n]] + replacement # include head
                     replacement = mt.substitute(replacement, sub) # lazy substitution
+
+                    print(f" {n}-step lookahead replacement {replacement} for variable {v}")
         
                     # do not yield if v occurs in replcement
-                    if any(u==v for (u, _) in replacement): continue
+                    if any(u==v for (u, _) in replacement):
+                        print(f" occurs check failed")
+                        continue
         
-                    # otherwise incorporate substitution and advance to tails
-                    yield from node.unifications_with(replacement, variables, mt.compose_single(v, replacement, sub))                   
+                    # otherwise incorporate into substitution and advance to tails
+                    new_sub = mt.compose_single(v, replacement, sub)
+                    print(f" occurs check passed, new sub:")
+                    print(new_sub)
+                    yield from node.unifications_with(term[1:], variables, new_sub)
 
-            # at this point term heads do unify, yield nothing and continue to next branch
-            # else: continue
+            # at this point heads do unify, yield nothing and continue to next branch
+            # else: continue # noop
 
+        print("loopdone")
         return # end of def
 
-        # ================
+        # ================ non-trie version:
         
         # build up substitution while consuming term heads until empty
         # s = {}
@@ -206,59 +241,12 @@ class TermTrieNode:
         # return None
 
 
-        # ===============
-
-        # # build up substitution while consuming term heads until empty
-        # s = {}
-        # while len(t1) > 0 and len(t2) > 0: t1 becomes self, t2 becomes term
-    
-        #     # if heads match, advance to tails
-        #     if t1[0][0] == t2[0][0]:
-        #         t1 = t1[1:]
-        #         t2 = t2[1:]
-        #         continue
-    
-        #     # check if either term head is a variable
-        #     v1 = (t1[0][0] in variables)
-        #     v2 = (t2[0][0] in variables)
-        #     if v1 or v2:
-    
-        #         # swap if needed so t1 has the variable head
-        #         if not v1: t1, t2 = t2, t1
-    
-        #         # extract variable and subterm
-        #         v = t1[0][0] # variable integer id
-        #         n = t2[0][1] # length of replacement term
-        #         st = t2[:n] # replacement term
-    
-        #         # fail if v occurs in st
-        #         if any(u==v for (u, _) in st): return None
-    
-        #         # otherwise incorporate substitution and advance to term tails
-        #         s = compose_single(v, st, s)
-        #         t1 = substitute_single(t1[1:], v, st)
-        #         t2 = substitute_single(t2[n:], v, st)
-        #         # new_s = {v: st}
-        #         # s = compose(new_s, s)
-        #         # t1 = substitute(t1[1:], new_s)
-        #         # t2 = substitute(t2[n:], new_s)
-    
-        #     # otherwise term heads are distinct constants so fail
-        #     else: return None
-    
-        # # success if both terms fully consumed
-        # if len(t1) == len(t2) == 0: return s
-    
-        # # otherwise failure
-        # return None
-
-
 if __name__ == "__main__":    
 
     import src.metamathpy.setmm as ms
 
     db = ms.load_pl()
-    rules = db.rules_up_to("mp2")
+    rules = db.rules_up_to("exormid")
     tm = mt.TermManager([rule for rule in rules["wff"] if rule.consequent.tag == "$a"])
     t1 = tm.parse("( ph -> ps )".split(), ["ph","ps"])
 
@@ -293,3 +281,80 @@ if __name__ == "__main__":
     print(res)
     # s, _ = ct_index.instantiate(t1)
     # print(s)
+
+    # bigger tests
+    data = [
+        # token string, variables, index data
+        ["( ph -> ps )", ("ph", "ps"), "wi"],
+        ["-. ph", ("ph",), "wn"],
+        ["( ph -> ( ps -> ph ) )", ("ph","ps"), "ax-1"],
+        ["( ( ph -> ( ps -> ch ) ) -> ( ( ph -> ps ) -> ( ph -> ch ) ) )", ("ph","ps","ch"), "ax-2"],
+        ["( ( -. ph -> -. ps ) -> ( ps -> ph ) )", ("ph","ps"), "ax-3"],
+        ["( ph -> ph )", ("ph",), "id"],
+    ]
+
+    trie = TermTrieNode()
+    for (toks, variables, label) in data:
+        term = tm.parse(toks.split(), variables)
+        trie.incorporate(term, label)
+
+    trie_vars = tuple(tm.encode(v) for v in ("ph","ps","ch"))
+    print(trie)
+
+    for (toks, variables, label) in data:
+        term = tm.parse(toks.split(), variables)
+        sub, res = trie.instantiate(tuple(tm.encode(v) for v in variables), term)
+        assert sub is not None
+        for (v,t) in sub.items(): assert t == [[v,1]]
+        assert res == label
+
+    # singleton variable term should unify with all
+    term = tm.parse(("ta",), ("ta",))
+    print(term)
+    subs, results = zip(*trie.unifications_with(term, (term[0][0],) + trie_vars))
+    assert len(subs) == len(data)
+    for (toks, variables, label) in data:
+        assert label in results
+
+        print(toks)
+        tterm = tm.parse(toks.split(), variables)
+        sub = {term[0][0]: tterm}
+        idx = results.index(label)
+
+        assert sub == subs[idx]
+
+    # special cases, standardized apart
+    print("\n special cases \n")
+    print(trie)
+    tests = [
+        ["( ta -> ta )", ("ta",), ("id","wi")],
+        ["( ta -> et )", ("ta","et"), ("wi", "ax-1", "ax-2", "ax-3", "id")],
+        ["-. ( ta -> ta )", ("ta",), ("wn",)],
+        ["( -. ta -> ta )", ("ta",), ("wi",)],
+        ["( -. ta -> ( ta -> ta ) )", ("ta",), ("wi",)],
+        ["( ta /\ et )", ("ta","et"), ()],
+    ]
+    trie_labels = [lab for (_,_,lab) in data]
+    for (toks, variables, labels) in tests:
+        print(toks)
+        term_vars = tuple(tm.encode(v) for v in variables)
+        assert len(set(term_vars) & set(trie_vars)) == 0 # standardized apart
+        term = tm.parse(toks.split(), variables)
+        if len(labels) == 0:
+            emptygen = list(trie.unifications_with(term, term_vars + trie_vars))
+            assert len(emptygen) == 0
+            subs, results = (), ()
+        else:
+            subs, results = zip(*trie.unifications_with(term, term_vars + trie_vars))
+        print(sorted(results))
+        print(sorted(labels))
+        for sub, res in zip(subs, results):
+            print(res, {tm.decode(v): " ".join(tm.serialize(t)) for (v,t) in sub.items()})
+            idx = trie_labels.index(res)
+            dterm = tm.parse(data[idx][0].split(), data[idx][1])
+            assert mt.substitute(dterm, sub) == mt.substitute(term, sub)
+        assert set(results) == set(labels)
+        
+
+    print("bigger tests passed")
+
