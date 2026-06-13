@@ -8,6 +8,7 @@ except NameError:
 
 import src.metamathpy.database as md
 import src.metamathpy.proof as mp
+import src.metamathpy.cterms as mt
 
 class TermTrieNode:
 
@@ -35,11 +36,14 @@ class TermTrieNode:
         self.branches[head].incorporate(term[1:], result)
 
     def look_ahead(self, n):
+        this needs to also yield the (token,n) lead
         if n == 0:
-            yield self
+            yield [], self
         else:
-            for child in self.branches.values():
-                yield from child.look_ahead(n-1)
+            for (tok, n), child in self.branches.items():
+                for term, node in child.look_ahead(n-1):
+                    yield [[tok,n]] + term, node
+                # yield from child.look_ahead(n-1)
 
     def instantiate(self, variables, term):
         """
@@ -57,7 +61,8 @@ class TermTrieNode:
         
         for (tok, n), child in self.branches.items():
             if tok in variables:
-                for descendent in child.look_ahead(n-1): # already took 1 step to get to child
+                # for descendent in child.look_ahead(n-1): # already took 1 step to get to child
+                for _, descendent in child.look_ahead(n-1): # already took 1 step to get to child
                     sub, result = descendent.instantiate(variables, term[n:])
                     if sub is not None:
                         sub[tok] = term[:n]
@@ -79,9 +84,11 @@ class TermTrieNode:
 
         also here doublecheck any written brainstorms about this
 
+        # defaults
         if sub is None:
             sub = {}
 
+        # base cases
         if len(term) == len(self.branches) == 0:
             yield ({}, self.result)
             return
@@ -89,15 +96,28 @@ class TermTrieNode:
         if (len(term) == 0) or (len(self.branches) == 0):
             return
 
+        # recursive yields
         for (tok, n), child in self.branches.items():
 
+            # does tok need to be replaced?
             if tok in sub:
-                replace tok if in sub... and invoke mt(sub[tok]:term, term[:n]) unify?
-                recurse on tail after 
 
-            if tok == term[0][0]:
+                # unify tok's replacement with leading term
+                head = sub[tok]
+                u = mt.unify(head, term[:len(head)], variables)
+
+                # prune if no unifier
+                if u is None: continue
+
+                # yield from tail
+                # yield from child.unifications_with(term[len(head):], variables, sub | u) # the values of other=u take priority when sub and u share keys ???<< is this right >>???
+                yield from child.unifications_with(term[len(head):], variables, mt.compose(u, sub)) # compose(u, sub): performing substitution sub followed by u
+
+            # does tok match term head?
+            elif tok == term[0][0]:
                 yield from child.unifications_with(term[1:], variables, sub):
                     
+            # can tok be replaced?
             elif tok in variables:
                 replacement = term[:term[0][1]]
     
@@ -105,12 +125,86 @@ class TermTrieNode:
                 if any(u==tok for (u, _) in replacement): continue
     
                 # otherwise incorporate substitution and advance to tails
-                yield from child.unifications_with(term[term[0][1]:], variables, sub | {tok: replacement}) <- check | precedence here
+                # yield from child.unifications_with(term[term[0][1]:], variables, sub | {tok: replacement})  # the value replacement takes priority when tok is in sub ???<< is this right >>???
+                yield from child.unifications_with(term[term[0][1]:], variables, mt.compose_single(tok, replacement, sub)  # compose_single(tok, replacement, sub): perform substitution sub followed by {tok: replacement}
 
+            # can term head be replaced?
             elif term[0][0] in variables:
-                for replacements in child.look_ahead(n-1):
+                for replacement, node in child.look_ahead(n-1):
+
+                    # extract variable and replacement
+                    v = term[0][0] # variable integer id
+                    replacement = mt.substitute(replacement, sub) # lazy substitution
+        
+                    # do not yield if v occurs in replcement
+                    if any(u==v for (u, _) in replacement): continue
+        
+                    # otherwise incorporate substitution and advance to tails
+                    yield from node.unifications_with(replacement, variables, mt.compose_single(v, replacement, sub))                   
 
             # at this point term heads do unify, yield nothing and continue to next branch
+            # else: continue
+
+        return # end of def
+
+        # ================
+        
+        # build up substitution while consuming term heads until empty
+        # s = {}
+        # while len(t1) > 0 and len(t2) > 0:
+    
+        #     # lazy substitution
+        #     if t1[0][0] in s:
+        #         t1 = s[t1[0][0]] + t1[1:]
+        #         continue
+    
+        #     if t2[0][0] in s:
+        #         t2 = s[t2[0][0]] + t2[1:]
+        #         continue
+    
+        #     # if heads match, advance to tails
+        #     if t1[0][0] == t2[0][0]:
+        #         t1 = t1[1:]
+        #         t2 = t2[1:]
+        #         continue
+    
+        #     # check if either term head is a variable
+        #     v1 = (t1[0][0] in variables)
+        #     v2 = (t2[0][0] in variables)
+        #     if v1 or v2:
+    
+        #         # swap if needed so t1 has the variable head
+        #         if not v1: t1, t2 = t2, t1
+    
+        #         # extract variable and subterm
+        #         v = t1[0][0] # variable integer id
+        #         n = t2[0][1] # length of replacement term
+        #         st = t2[:n] # replacement term
+        #         st = substitute(st, s) # lazy substitution
+    
+        #         # fail if v occurs in st
+        #         if any(u==v for (u, _) in st): return None
+    
+        #         # otherwise incorporate substitution and advance to term tails
+        #         s = compose_single(v, st, s)
+        #         t1 = t1[1:]
+        #         t2 = t2[n:]
+        #         # t1 = substitute_single(t1[1:], v, st)
+        #         # t2 = substitute_single(t2[n:], v, st)
+        #         # new_s = {v: st}
+        #         # s = compose(new_s, s)
+        #         # t1 = substitute(t1[1:], new_s)
+        #         # t2 = substitute(t2[n:], new_s)
+    
+        #     # otherwise term heads are distinct constants so fail
+        #     else: return None
+    
+        # # success if both terms fully consumed
+        # if len(t1) == len(t2) == 0: return s
+    
+        # # otherwise failure
+        # return None
+
 
         # ===============
 
@@ -161,7 +255,6 @@ class TermTrieNode:
 
 if __name__ == "__main__":    
 
-    import src.metamathpy.cterms as mt
     import src.metamathpy.setmm as ms
 
     db = ms.load_pl()
