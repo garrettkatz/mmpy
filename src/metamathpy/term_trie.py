@@ -25,17 +25,20 @@ class TermTrieNode:
         return "\n".join(s)
 
     def incorporate(self, term, result):
+        """
+        Incorporates term into self and returns node storing result
+        """
 
         if len(term) == 0:
             assert self.result is None
             assert len(self.branches) == 0
             self.result = result
-            return
+            return self
 
         head = tuple(term[0])
         if head not in self.branches:
             self.branches[head] = TermTrieNode()
-        self.branches[head].incorporate(term[1:], result)
+        return self.branches[head].incorporate(term[1:], result)
 
     def look_ahead(self, n):
         """
@@ -257,8 +260,10 @@ if __name__ == "__main__":
 
     trie = TermTrieNode()
     print(trie.tree_string(tm))
-    trie.incorporate([[0,2],[1,1]], "one")
-    trie.incorporate([[0,2],[10,1]], "done")
+    leaf = trie.incorporate([[0,2],[1,1]], "one")
+    assert leaf.result == "one"
+    leaf = trie.incorporate([[0,2],[10,1]], "done")
+    assert leaf.result == "done"
     trie.incorporate([[0,1],[3,3]], "tone")
     trie.incorporate([[1,2],[4,4]], "4one")
     trie.incorporate([[3,5],[6,6]], "6tone")
