@@ -449,7 +449,7 @@ if __name__ == "__main__":
 
     do_run = True
     exclude_list = ms.new_usage_discouraged()
-    start_from_goal_index = 0 #175 jad # 1374 syl332anc took 24223s before unify_with_filter
+    start_from_goal_index = 783 #175 jad # 1374 syl332anc took 24223s before unify_with_filter
     stop_after = -1
 
     db = ms.load_pl()

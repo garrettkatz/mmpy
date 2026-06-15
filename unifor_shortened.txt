@@ -28,68 +28,6 @@ new proof (6 steps): wph wph wps wph pm2.65i.2 pm2.65i.1 nsyl3 pm2.01i
 ( wn con2i con3i pm2.61i ) BAEABDFABCGH
 ( nsyl3 pm2.01i ) AABADCEF
 
-======= Officially shorter, pull request not submitted yet =========
-
-sylnbi
-old proof (9 steps): wph wn wps wn wch wph wps sylnbi.1 notbii sylnbi.2 sylbi
-new proof (7 steps): wps wph wch wph wps sylnbi.1 biimpri sylnbi.2 nsyl5
-( wn notbii sylbi ) AFBFCABDGEH
-( biimpri nsyl5 ) BACABDFEG
-
-imp42
-old proof (11 steps): wph wps wch wa wa wth wta wph wps wch wth wta wi imp4.1 imp32 imp
-new proof (10 steps): wph wps wch wa wth wta wph wps wch wth wta wi imp4.1 impd imp31
-( wa wi imp32 imp ) ABCGGDEABCDEHFIJ
-( wa wi impd imp31 ) ABCGDEABCDEHFIJ
-
-imp45
-old proof (10 steps): wph wps wch wth wa wa wta wph wps wch wth wta imp4.1 imp4d imp
-new proof (9 steps): wph wps wch wth wa wta wph wps wch wth wta imp4.1 imp4a imp32
-( wa imp4d imp ) ABCDGGEABCDEFHI
-( wa imp4a imp32 ) ABCDGEABCDEFHI
-
-simplbda
-old proof (9 steps): wph wps wa wch wth wph wps wch wth wa pm3.26bda.1 biimpa simprd
-new proof (7 steps): wph wps wth wch wph wps wth wch pm3.26bda.1 biancomd simprbda
-( wa biimpa simprd ) ABFCDABCDFEGH
-( biancomd simprbda ) ABDCABDCEFG
-
-bianbi
-old proof (10 steps): wph wps wch wa wth wch wa bianbi.1 wps wth wch bianbi.2 anbi1i bitri
-new proof (9 steps): wph wps wch wth bianbi.1 wps wth wb wch bianbi.2 a1i bianim
-( wa anbi1i bitri ) ABCGDCGEBDCFHI
-( wb a1i bianim ) ABCDEBDGCFHI
-
-anbiim
-old proof (12 steps): wph wps wa wch wth wph wch wth wi wps anbiim.1 adantr wps wth wch wi wph anbiim.2 adantl impbid
-new proof (9 steps): wps wph wch wth wb wps wph wch wth anbiim.1 anbiim.2 impbid21d impcom
-( wa wi adantr adantl impbid ) ABGCDACDHBEIBDCHAFJK
-( wb impbid21d impcom ) BACDGBACDEFHI
-
-pm2.65da
-old proof (9 steps): wph wps wch wph wps wch pm2.65da.1 ex wph wps wch wn pm2.65da.2 ex pm2.65d
-new proof (8 steps): wph wps wph wps wa wch pm2.65da.1 pm2.65da.2 pm2.65i imnani
-( ex wn pm2.65d ) ABCABCDFABCGEFH
-( wa pm2.65i imnani ) ABABFCDEGH
-
-pm4.57
-old proof (9 steps): wph wps wo wph wn wps wn wa wn wph wps oran bicomi
-new proof (8 steps): wph wps wo wph wn wps wn wa wph wps ioran con1bii
-( wo wn wa oran bicomi ) ABCADBDEDABFG
-( wo wn wa ioran con1bii ) ABCADBDEABFG
-
-3anan32
-old proof (11 steps): wph wps wch w3a wph wps wa wch wa wph wch wa wps wa wph wps wch df-3an wph wps wch an32 bitri
-new proof (7 steps): wph wps wch w3a wph wch wa wps wph wps wch 3anan12 biancomi
-( w3a wa df-3an an32 bitri ) ABCDABECEACEBEABCFABCGH
-( w3a wa 3anan12 biancomi ) ABCDACEBABCFG
-
-syl21anbrc
-old proof (13 steps): wph wps wch wa wth wa wta wph wps wch wth syl21anbrc.1 syl21anbrc.2 syl21anbrc.3 jca31 syl21anbrc.4 sylibr
-new proof (12 steps): wph wps wch wa wth wta wph wps wch syl21anbrc.1 syl21anbrc.2 jca syl21anbrc.3 syl21anbrc.4 sylanbrc
-( wa jca31 sylibr ) ABCJDJEABCDFGHKIL
-( wa jca sylanbrc ) ABCJDEABCFGKHIL
-
 ad5ant124
 old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
 new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
@@ -122,6 +60,139 @@ new proof (9 steps): wph wps wet wch wth wta wph wps wch wth wet ad5ant.1 ad4ant
 ( wa ad4ant134 adantlr ) AEHBHCDFABCDEGIJ
 ( ad4ant124 adantl3r ) ABFCDEABCDFGHI
 
+======= Officially shorter, pull request not submitted yet =========
+
+label imbibi: 3994
+  $( The antecedent of one side of a biconditional can be moved out of the
+     biconditional to become the antecedent of the remaining biconditional.
+     (Contributed by BJ, 1-Jan-2025.)  (Proof shortened by Wolf Lammen,
+     5-Jan-2025.) $)
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi
+old normal proof: wph wps wi wch wb wph wps wch wph wps wi wph wph wps wi wi wph wps wi wch wb wph wch wi wph wps pm5.4 wph wps wi wch wph imbi2 bitr3id pm5.74rd
+new normal proof: wph wps wi wps wb wph wps wi wch wb wps wch wb wph wph wps wi wps wch bitr3 wph wps pm5.5 syl11
+( wi wb pm5.4 imbi2 bitr3id pm5.74rd ) ABDZCEZABCJAJDKACDABFJCAGHI
+( wi wb bitr3 pm5.5 syl11 ) ABDZBEICEBCEAIBCFABGH
+
+anbiim 5845
+    $( Adding biconditional when antecedents are conjuncted.  (Contributed by
+       metakunt, 16-Apr-2024.)  (Proof shortened by Wolf Lammen,
+       7-May-2025.) $)
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an
+old proof (12 steps): wph wps wa wch wth wph wch wth wi wps anbiim.1 adantr wps wth wch wi wph anbiim.2 adantl impbid
+new proof (9 steps): wps wph wch wth wb wps wph wch wth anbiim.1 anbiim.2 impbid21d impcom
+( wa wi adantr adantl impbid ) ABGCDACDHBEIBDCHAFJK
+( wb impbid21d impcom ) BACDGBACDEFHI
+
+3anan32 9120
+  $( Convert triple conjunction to conjunction, then commute.  (Contributed by
+     Jonathan Ben-Naim, 3-Jun-2011.) $)
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+old proof (11 steps): wph wps wch w3a wph wps wa wch wa wph wch wa wps wa wph wps wch df-3an wph wps wch an32 bitri
+new proof (7 steps): wph wps wch w3a wph wch wa wps wph wps wch 3anan12 biancomi
+( w3a wa df-3an an32 bitri ) ABCDABECEACEBEABCFABCGH
+( w3a wa 3anan12 biancomi ) ABCDACEBABCFG
+
+
+
+sylnbi
+old proof (9 steps): wph wn wps wn wch wph wps sylnbi.1 notbii sylnbi.2 sylbi
+new proof (7 steps): wps wph wch wph wps sylnbi.1 biimpri sylnbi.2 nsyl5
+( wn notbii sylbi ) AFBFCABDGEH
+( biimpri nsyl5 ) BACABDFEG
+
+imp42
+old proof (11 steps): wph wps wch wa wa wth wta wph wps wch wth wta wi imp4.1 imp32 imp
+new proof (10 steps): wph wps wch wa wth wta wph wps wch wth wta wi imp4.1 impd imp31
+( wa wi imp32 imp ) ABCGGDEABCDEHFIJ
+( wa wi impd imp31 ) ABCGDEABCDEHFIJ
+
+imp45
+old proof (10 steps): wph wps wch wth wa wa wta wph wps wch wth wta imp4.1 imp4d imp
+new proof (9 steps): wph wps wch wth wa wta wph wps wch wth wta imp4.1 imp4a imp32
+( wa imp4d imp ) ABCDGGEABCDEFHI
+( wa imp4a imp32 ) ABCDGEABCDEFHI
+
+simplbda
+old proof (9 steps): wph wps wa wch wth wph wps wch wth wa pm3.26bda.1 biimpa simprd
+new proof (7 steps): wph wps wth wch wph wps wth wch pm3.26bda.1 biancomd simprbda
+( wa biimpa simprd ) ABFCDABCDFEGH
+( biancomd simprbda ) ABDCABDCEFG
+
+bianbi
+old proof (10 steps): wph wps wch wa wth wch wa bianbi.1 wps wth wch bianbi.2 anbi1i bitri
+new proof (9 steps): wph wps wch wth bianbi.1 wps wth wb wch bianbi.2 a1i bianim
+( wa anbi1i bitri ) ABCGDCGEBDCFHI
+( wb a1i bianim ) ABCDEBDGCFHI
+
+pm2.65da
+old proof (9 steps): wph wps wch wph wps wch pm2.65da.1 ex wph wps wch wn pm2.65da.2 ex pm2.65d
+new proof (8 steps): wph wps wph wps wa wch pm2.65da.1 pm2.65da.2 pm2.65i imnani
+( ex wn pm2.65d ) ABCABCDFABCGEFH
+( wa pm2.65i imnani ) ABABFCDEGH
+
+pm4.57
+old proof (9 steps): wph wps wo wph wn wps wn wa wn wph wps oran bicomi
+new proof (8 steps): wph wps wo wph wn wps wn wa wph wps ioran con1bii
+( wo wn wa oran bicomi ) ABCADBDEDABFG
+( wo wn wa ioran con1bii ) ABCADBDEABFG
+
+syl21anbrc
+old proof (13 steps): wph wps wch wa wth wa wta wph wps wch wth syl21anbrc.1 syl21anbrc.2 syl21anbrc.3 jca31 syl21anbrc.4 sylibr
+new proof (12 steps): wph wps wch wa wth wta wph wps wch syl21anbrc.1 syl21anbrc.2 jca syl21anbrc.3 syl21anbrc.4 sylanbrc
+( wa jca31 sylibr ) ABCJDJEABCDFGHKIL
+( wa jca sylanbrc ) ABCJDEABCFGKHIL
+
+label bitrdi:
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi
+old normal proof: wph wps wch wth bitrdi.1 wch wth wb wph bitrdi.2 a1i bitrd
+new normal proof: wph wch wps wth wph wps wch bitrdi.1 bicomd bitrdi.2 bitr3di
+( wb a1i bitrd )   ABCDECDGAFHI
+( bicomd bitr3di ) ACBDABCEGFH
+
+label an13:
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an
+old normal proof: wph wps wch wa wa wps wph wa wch wa wch wps wph wa wa wps wph wch an21 wps wph wa wch ancom bitr3i
+new normal proof: wph wps wch wa wa wch wps wph wa wps wch wa wps wch wph wps wch wa biid bianassc biancomi
+( wa an21 ancom bitr3i ) ABCDDBADZCDCHDBACEHCFG
+( wa biid bianassc biancomi ) ABCDZDCBADHBCAHEFG
+
+label adantl4r:
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an
+old normal proof: wph wze wa wsi wa wrh wa wmu wa wla wka wph wsi wrh wmu wla wka wi wze wph wsi wa wrh wa wmu wa wla wka adantl4r.1 ex adantl3r imp
+new normal proof: wph wze wa wsi wa wrh wa wph wsi wa wrh wa wmu wla wka wph wsi wrh wph wsi wa wrh wa wze wph wsi wa wrh wa id adantllr adantl4r.1 sylanl1
+( wa wi ex adantl3r imp ) ABICIDIEIFGACDEFGJBACIDIEIFGHKLM
+( wa id adantllr sylanl1 ) ABICIDIACIDIZEFGACDMBMJKHL
+
+label adantl5r:
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an
+old normal proof: wph wet wa wze wa wsi wa wrh wa wmu wa wla wka wph wet wze wsi wrh wmu wla wka wi wph wze wa wsi wa wrh wa wmu wa wla wka adantl5r.1 ex adantl4r imp
+new normal proof: wph wet wa wze wa wsi wa wrh wa wph wze wa wsi wa wrh wa wmu wla wka wph wze wsi wrh wph wze wa wsi wa wrh wa wet wph wze wa wsi wa wrh wa id adantl3r adantl5r.1 sylanl1
+( wa wi ex adantl4r imp ) ABJCJDJEJFJGHABCDEFGHKACJDJEJFJGHILMN
+( wa id adantl3r sylanl1 ) ABJCJDJEJACJDJEJZFGHACDENBNKLIM
+
+label adantl6r:
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an
+old normal proof: wph wta wa wet wa wze wa wsi wa wrh wa wmu wa wla wka wph wta wet wze wsi wrh wmu wla wka wi wph wet wa wze wa wsi wa wrh wa wmu wa wla wka adantl6r.1 ex adantl5r imp
+new normal proof: wph wta wa wet wa wze wa wsi wa wrh wa wph wet wa wze wa wsi wa wrh wa wmu wla wka wph wta wet wze wsi wrh wph wet wa wze wa wsi wa wrh wa wph wet wa wze wa wsi wa wrh wa id adantl4r adantl6r.1 sylanl1
+( wa wi ex adantl5r imp ) ABKCKDKEKFKGKHIABCDEFGHILACKDKEKFKGKHIJMNO
+( wa id adantl4r sylanl1 ) ABKCKDKEKFKACKDKEKFKZGHIABCDEFOOLMJN
+
+looinv
+old axs: wn wi ax-mp ax-1 ax-2 ax-3
+new axs: wn wi ax-mp ax-1 ax-2 ax-3
+old proof (9 steps): wph wps wi wps wi wps wph wi wph wps wi wph wi wph wph wps wi wps wph imim1 wph wps peirce syl6
+new proof (8 steps): wph wps wi wps wps wph wi wph wi wph wps wps wph wi pm2.521g2 wps wph pm2.27 ja
+( wi imim1 peirce syl6 ) ABCZBCBACGACAGBADABEF
+( wi pm2.521g2 pm2.27 ja ) ABCBBACZACABGDBAEF
+
 ======= Not officially shorter =========
 
 notnotd
@@ -150,6 +221,26 @@ new proof (5 steps): wph wps wps wn wph wps wn idd orrd
 
 notnotri: was a valid shorter proof, but similar shortening was already known (in fact fewer steps when you count wff steps): notnotriALT, and anyway uses more axioms
 
+pm2.86d
+old axs: wi ax-mp ax-1 ax-2
+new axs: wi ax-mp ax-1 ax-2
+old proof (10 steps): wph wch wps wth wch wps wch wi wph wps wth wi wch wps ax-1 pm2.86d.1 syl5 com23
+new proof (9 steps): wch wps wch wi wph wps wth wch wps ax-1 wph wps wch wi wps wth pm2.86d.1 com23 syl7
+( wi ax-1 syl5 com23 ) ACBDCBCFABDFCBGEHI
+( wi ax-1 com23 syl7 ) CBCFZABDCBGAJBDEHI
+
+label nbbn: actually was a shortening, but got scooped by umit
+  $( Move negation outside of biconditional.  Compare Theorem *5.18 of
+     [WhiteheadRussell] p. 124.  (Contributed by NM, 27-Jun-2002.)  (Proof
+     shortened by Wolf Lammen, 20-Sep-2013.) $)
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi
+old normal proof: wph wps wb wn wph wps wn wb wps wph wn wb wph wn wps wb wph wps xor3 wph wps con2bi wps wph wn bicom 3bitrri
+new normal proof: wph wn wps wb wph wn wps wn wb wph wps wb wph wn wps pm5.18 wph wps notbi xchbinxr
+( wb wn xor3 con2bi bicom 3bitrri ) ABCDABDCBADZCIBCABEABFBIGH
+( wn wb pm5.18 notbi xchbinxr ) ACZBDHBCDABDHBEABFG
+
+
 ======= Compression not checked yet, axiom usage not checked yet ========
 check axiom usage before/after: sh tr looinv /ax
 
@@ -157,13 +248,19 @@ unifor max depth 2:
 
 unifor max depth 3:
 
-looinv -- but does it change axiom usage?
-old proof (9 steps): wph wps wi wps wi wps wph wi wph wps wi wph wi wph wph wps wi wps wph imim1 wph wps peirce syl6
-new proof (8 steps): wph wps wi wps wps wph wi wph wi wph wps wps wph wi pm2.521g2 wps wph pm2.27 ja
-( wi imim1 peirce syl6 ) ABCZBCBACGACAGBADABEF
-( wi pm2.521g2 pm2.27 ja ) ABCBBACZACABGDBAEF
+unifort max depth 3:
 
-pm2.86d
-old proof (10 steps): wph wch wps wth wch wps wch wi wph wps wth wi wch wps ax-1 pm2.86d.1 syl5 com23
-new proof (9 steps): wch wps wch wi wph wps wth wch wps ax-1 wph wps wch wi wps wth pm2.86d.1 com23 syl7
+==========
 
+       Note on the various syllogism-like statements in set.mm.  The
+       hypothetical syllogism ~ syl infers an implication from two implications
+       (and there are ~ 3syl and ~ 4syl for chaining more inferences).  There
+       are four inferences inferring an implication from one implication and
+       one biconditional: ~ sylbi , ~ sylib , ~ sylbir , ~ sylibr ; four
+       inferences inferring an implication from two biconditionals: ~ sylbb ,
+       ~ sylbbr , ~ sylbb1 , ~ sylbb2 ; four inferences inferring a
+       biconditional from two biconditionals: ~ bitri , ~ bitr2i , ~ bitr3i ,
+       ~ bitr4i (and more for chaining more biconditionals).  There are also
+       closed forms and deduction versions of these, like, among many others,
+       ~ syld , ~ syl5 , ~ syl6 , ~ mpbid , ~ bitrd , ~ bitrid , ~ bitrdi and
+       variants.  (Contributed by BJ, 21-Apr-2019.) $)
