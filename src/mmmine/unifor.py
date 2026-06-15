@@ -335,12 +335,12 @@ if __name__ == "__main__":
     import src.metamathpy.setmm as ms
     import src.metamathpy.database as md
 
-    max_depth = 3
+    max_depth = 2
 
     do_run = True
     exclude_list = ms.new_usage_discouraged()
-    start_from_goal_index = 0 #175 jad # 1374 syl332anc took 24223s before unify_with_filter
-    stop_after = 100
+    start_from_goal_index = 1300 #175 jad # 1374 syl332anc took 24223s before unify_with_filter
+    stop_after = 3
 
     db = ms.load_pl()
     # goal_labels = ["notnotri"]
@@ -428,7 +428,7 @@ if __name__ == "__main__":
     
                 goal_proofs[goal_label] = new_normal_proof
 
-                with open("ufr.pkl","wb") as f: pk.dump((goal_proofs, goal_times, shortened), f)
+            with open("ufr.pkl","wb") as f: pk.dump((goal_proofs, goal_times, shortened), f)
 
     with open("ufr.pkl","rb") as f: (goal_proofs, goal_times, shortened) = pk.load(f)
 
