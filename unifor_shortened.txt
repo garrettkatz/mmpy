@@ -162,3 +162,8 @@ old proof (9 steps): wph wps wi wps wi wps wph wi wph wps wi wph wi wph wph wps 
 new proof (8 steps): wph wps wi wps wps wph wi wph wi wph wps wps wph wi pm2.521g2 wps wph pm2.27 ja
 ( wi imim1 peirce syl6 ) ABCZBCBACGACAGBADABEF
 ( wi pm2.521g2 pm2.27 ja ) ABCBBACZACABGDBAEF
+
+pm2.86d
+old proof (10 steps): wph wch wps wth wch wps wch wi wph wps wth wi wch wps ax-1 pm2.86d.1 syl5 com23
+new proof (9 steps): wch wps wch wi wph wps wth wch wps ax-1 wph wps wch wi wps wth pm2.86d.1 com23 syl7
+

@@ -12,33 +12,36 @@ import src.metamathpy.terms as mt
 
 class TermTrieNode:
 
-    def __init__(self, result=None):
-        self.result = result
+    def __init__(self, data=None):
+        self.data = data
         self.branches = {}
 
     def tree_string(self, term_manager, prefix=""):
-        if len(self.branches) == 0: return str(self.result)
-        s = ["" if self.result is None else str(self.result)]
+        # if len(self.branches) == 0: return str(self.data)
+        s = ["" if self.data is None else str(self.data)]
         for (t,n), child in self.branches.items():
             cs = child.tree_string(term_manager, prefix+" ")
-            s.append(f"{prefix}{tm.decode(t)} [{t},:{n}] {cs}")
+            s.append(f"{prefix}{term_manager.decode(t)} [{t},:{n}] {cs}")
         return "\n".join(s)
 
-    def incorporate(self, term, result):
+    def incorporate(self, term, data=None):
         """
-        Incorporates term into self and returns node storing result
+        Incorporates term into self and returns associated node
+        If data is not None:
+            if node already has non-None data, error is raised
+            otherwise, data is stored at node
         """
 
         if len(term) == 0:
-            assert self.result is None
-            assert len(self.branches) == 0
-            self.result = result
+            if data is not None:
+                assert self.data is None
+                self.data = data
             return self
 
         head = tuple(term[0])
         if head not in self.branches:
             self.branches[head] = TermTrieNode()
-        return self.branches[head].incorporate(term[1:], result)
+        return self.branches[head].incorporate(term[1:], data)
 
     def look_ahead(self, n):
         """
@@ -62,15 +65,13 @@ class TermTrieNode:
         returns substitution and index data at self's corresponding leaf, or None if failure
         todo: generate all instead of returning at most one?
         """
-        if len(term) == len(self.branches) == 0:
-            return {}, self.result
 
-        if (len(term) == 0) or (len(self.branches) == 0):
-            return None, None
-        
+        if len(term) == 0:
+            if self.data is None: return None, None
+            return {}, self.data
+
         for (tok, n), child in self.branches.items():
             if tok in variables:
-                # for descendent in child.look_ahead(n-1): # already took 1 step to get to child
                 for _, descendent in child.look_ahead(n-1): # already took 1 step to get to child
                     sub, result = descendent.instantiate(variables, term[n:])
                     if sub is not None:
@@ -102,7 +103,7 @@ class TermTrieNode:
         variables: set of integer ids representing substitutable variables
         sub: substitution accumulator (defaults to empty)
         path_term: path term accumulator (defaults to empty)
-        yields accumulated (sub, path_term, index data) for successfully unifying leaves
+        yields accumulated (sub, path_term, data) for successfully unifying leaves (non-None data)
         """
 
         # defaults
@@ -112,44 +113,45 @@ class TermTrieNode:
             path_term = []
 
         # base cases
-        if len(term) == len(self.branches) == 0:
-            yield (sub, path_term, self.result)
-            print("goodbase")
+        if len(term) == 0:
+            if self.data is not None:
+                yield (sub, path_term, self.data)
+                # print("goodbase")
             return
 
-        if (len(term) == 0) or (len(self.branches) == 0):
-            print("badbase")
-            print(term)
-            print(self.branches)
+        elif len(self.branches) == 0:
+            # print("badbase")
+            # print(term)
+            # print(self.branches)
             return
 
         # lazy substitution on term
         if term[0][0] in sub:
             term = sub[term[0][0]] + term[1:]
-            print(f"{term[0][0]} was in sub, lazy sub recursing on:")
-            print(term)
+            # print(f"{term[0][0]} was in sub, lazy sub recursing on:")
+            # print(term)
             yield from self.unifications_with(term, variables, sub, path_term)
             return
 
         # recurse on self's children
-        print(f"no bases, looping over {list(self.branches.items())}, term is:")
-        print(term)
+        # print(f"no bases, looping over {list(self.branches.items())}, term is:")
+        # print(term)
         for (tok, n), child in self.branches.items():
 
             # lazy substitution on tok
             if tok in sub:
-                print(f"tok {tok} in sub {sub}")
+                # print(f"tok {tok} in sub {sub}")
                 subtrie = child.prepend(sub[tok])
                 yield from subtrie.unifications_with(term, variables, sub, path_term)
 
             # does tok match term head?
             elif tok == term[0][0]:
-                print(f"tok {tok} == term[0][0] {term[0][0]}")
+                # print(f"tok {tok} == term[0][0] {term[0][0]}")
                 yield from child.unifications_with(term[1:], variables, sub, path_term + [[tok, n]])
                     
             # can tok be replaced?
             elif tok in variables:
-                print(f"tok {tok} in variables {variables}")
+                # print(f"tok {tok} in variables {variables}")
                 rep_len = term[0][1]
                 replacement, tail = term[:rep_len], term[rep_len:]
                 replacement = mt.substitute(replacement, sub) # lazy substitution
@@ -163,7 +165,7 @@ class TermTrieNode:
 
             # can term head be replaced?
             elif term[0][0] in variables:
-                print(f"term[0][0] {term[0][0]} in variables {variables}")
+                # print(f"term[0][0] {term[0][0]} in variables {variables}")
                 for replacement, node in child.look_ahead(n-1):
 
                     # extract variable and replacement
@@ -171,23 +173,23 @@ class TermTrieNode:
                     replacement = [[tok, n]] + replacement # include head
                     replacement = mt.substitute(replacement, sub) # lazy substitution
 
-                    print(f" {n}-step lookahead replacement {replacement} for variable {v}")
+                    # print(f" {n}-step lookahead replacement {replacement} for variable {v}")
         
                     # do not yield if v occurs in replcement
                     if any(u==v for (u, _) in replacement):
-                        print(f" occurs check failed")
+                        # print(f" occurs check failed")
                         continue
         
                     # otherwise incorporate into substitution and advance to tails
                     new_sub = mt.compose_single(v, replacement, sub)
-                    print(f" occurs check passed, new sub:")
-                    print(new_sub)
+                    # print(f" occurs check passed, new sub:")
+                    # print(new_sub)
                     yield from node.unifications_with(term[1:], variables, new_sub, path_term + replacement)
 
             # at this point heads do unify, yield nothing and continue to next branch
             # else: continue # noop
 
-        print("loopdone")
+        # print("loopdone")
         return # end of def
 
         # ================ non-trie version:
@@ -261,9 +263,9 @@ if __name__ == "__main__":
     trie = TermTrieNode()
     print(trie.tree_string(tm))
     leaf = trie.incorporate([[0,2],[1,1]], "one")
-    assert leaf.result == "one"
+    assert leaf.data == "one"
     leaf = trie.incorporate([[0,2],[10,1]], "done")
-    assert leaf.result == "done"
+    assert leaf.data == "done"
     trie.incorporate([[0,1],[3,3]], "tone")
     trie.incorporate([[1,2],[4,4]], "4one")
     trie.incorporate([[3,5],[6,6]], "6tone")
