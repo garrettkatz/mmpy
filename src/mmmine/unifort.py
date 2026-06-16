@@ -2,6 +2,10 @@ import src.metamathpy.proof as mp
 import src.metamathpy.terms as mt
 from src.metamathpy.term_trie import TermTrieNode
 
+MAX_REM_PRUNE = True
+NUM_HITS = 0
+NUM_MISS = 0
+
 try:
     profile
 except NameError:
@@ -116,16 +120,18 @@ class WorkingProof:
 def essential_unifications(essential_trie, working_proof, step_depth, variables, sub=None, dep_idx=(), use_quota=None):
     """
     Helper to unify nested essential tries with multisubset of working proof steps up to step_depth
-    variables: must be superset of variables occurring in essential_trie or working_proof
-    use_quota: the minimum number of working proof's assertions that need to become used
     yields substituted working proof after unification
+    variables: must be superset of variables occurring in essential_trie or working_proof
+    use_quota: the minimum number of working proof's assertions that need to become used in yielded proof
     """
 
     # more complicated:
     # whereas unifor had fixed number of terms, different paths in essential_trie could have different numbers of remaining terms
     # can/should you maintain at each trie node the maximum number of remaining terms below it, to prune more here?
 
+    # defaults
     if sub is None: sub = {}
+    if use_quota is None: use_quota = 0 # dont need to use any unless specified
 
     # apply sub to working_proof
     # print("pre-sub:")
@@ -148,9 +154,11 @@ def essential_unifications(essential_trie, working_proof, step_depth, variables,
             # print(' '.join(working_proof.term_manager.serialize(working_proof.assertions[i])))
             # print("finished labels:", [label for (label,_) in data[0]])
 
+            complete_rules, incomplete_rule_trie, max_remaining_rule_terms = data
+
             # only yield at this point if new usage meets quota
             if new_usage >= use_quota:
-                for (label, consequent) in data[0]:
+                for (label, consequent) in complete_rules:
                     # replace step_depth assertion with consequent
                     sub_working_proof = working_proof.swap_assertion(step_depth, consequent, variables)
                     # apply substitution
@@ -160,15 +168,30 @@ def essential_unifications(essential_trie, working_proof, step_depth, variables,
                     for di in new_dep_idx: sub_working_proof.used[di] = True
                     yield sub_working_proof
 
+            # only recurse if enough terms left to meet quota
+            if MAX_REM_PRUNE:
+                global NUM_HITS, NUM_MISS
+                if new_usage + max_remaining_rule_terms < use_quota:
+                    NUM_HITS += 1
+                    continue
+                NUM_MISS += 1
+
             # print("recursing on next trie:")
-            # print(data[1].tree_string(working_proof.term_manager))
-            yield from essential_unifications(data[1], working_proof, step_depth, variables, new_sub, new_dep_idx, use_quota)
+            # print(incomplete_rule_trie.tree_string(working_proof.term_manager))
+            yield from essential_unifications(incomplete_rule_trie, working_proof, step_depth, variables, new_sub, new_dep_idx, use_quota)
 
 class RuleIndex:
     def __init__(self, rules, term_manager):
         """
         rules: list of rule objects to be indexed
         term_manager: for encoding the rules
+
+        has several chained tries for indexing operations
+
+        trie node data has the form (rules, next_trie, max_remaining) where
+            rules is a list of (label, consequent) for rules whose terms end at this node
+            next trie is for the next term in rules that do not end at this node
+            max_remaining is the maximum number of remaining terms in all rules below this node
         """
         self.term_manager = term_manager
         self.max_essentials = 0
@@ -202,19 +225,21 @@ class RuleIndex:
                 # incorporate consequent
                 node = self.consequent_trie[ne].incorporate(consequent)
                 if node.data is None:
-                    node.data = ([], TermTrieNode()) # terminal rule labels and consequent terms, non-terminal rule essential trie
+                    node.data = [[], TermTrieNode(), 0]
+                node.data[2] = max(node.data[2], len(essentials))
     
                 # incorporate any essentials
-                for essential in essentials:
+                for e, essential in enumerate(essentials):
                     node = node.data[1].incorporate(essential)
                     if node.data is None:
-                        node.data = ([], TermTrieNode())
+                        node.data = [[], TermTrieNode(), 0]
+                    node.data[2] = max(node.data[2], len(essentials)-e-1)
     
                 # store the rule label and consequent term
                 node.data[0].append((rule.consequent.label, consequent))
     
-                # essential-less rules
-                if len(essentials) == 0: continue # skip next essential-full step if no essentials
+                # for essential-less rules, skip consequent-agnostic indexing
+                if len(essentials) == 0: continue
     
                 ## essential-full consequent-agnostic trie
                 if ne not in self.essentials_trie:
@@ -223,13 +248,15 @@ class RuleIndex:
                 # incorporate first essential
                 node = self.essentials_trie[ne].incorporate(essentials[0])
                 if node.data is None:
-                    node.data = ([], TermTrieNode()) # terminal rule labels, non-terminal rule essential trie
+                    node.data = [[], TermTrieNode(), 0]
+                node.data[2] = max(node.data[2], len(essentials)-1)
     
                 # incorporate any remaining essentials
-                for essential in essentials[1:]:
+                for e, essential in enumerate(essentials[1:]):
                     node = node.data[1].incorporate(essential)
                     if node.data is None:
-                        node.data = ([], TermTrieNode())
+                        node.data = [[], TermTrieNode(), 0]
+                    node.data[2] = max(node.data[2], len(essentials)-2)
     
                 # store the rule label and consequent term
                 node.data[0].append((rule.consequent.label, consequent))
@@ -445,7 +472,7 @@ if __name__ == "__main__":
     import src.metamathpy.setmm as ms
     import src.metamathpy.database as md
 
-    max_depth = 3
+    max_depth = 2
 
     do_run = True
     exclude_list = ms.new_usage_discouraged()
@@ -557,4 +584,6 @@ if __name__ == "__main__":
             print(f"new normal proof: {' '.join(goal_proofs[label])}")
             print(f"old normal proof: {' '.join(old_normal_proof)}")
         
+    print(f"{NUM_HITS=}")
+    print(f"{NUM_MISS=}")
 

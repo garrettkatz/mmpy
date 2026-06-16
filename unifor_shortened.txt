@@ -95,7 +95,23 @@ new proof (7 steps): wph wps wch w3a wph wch wa wps wph wps wch 3anan12 biancomi
 ( w3a wa df-3an an32 bitri ) ABCDABECEACEBEABCFABCGH
 ( w3a wa 3anan12 biancomi ) ABCDACEBABCFG
 
+3jaao
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or w3o w3a df-3or df-3an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or w3o w3a df-3or df-3an
+old proof (18 steps): wph wth wet w3a wps wch wta wze wph wth wps wch wi wet 3jaao.1 3ad2ant1 wth wph wta wch wi wet 3jaao.2 3ad2ant2 wet wph wze wch wi wth 3jaao.3 3ad2ant3 3jaod
+new proof (17 steps): wph wps wch wi wth wta wch wi wet wze wch wi wps wta wze w3o wch wi 3jaao.1 3jaao.2 3jaao.3 wps wch wta wze 3jao syl3an
+( w3a wi 3ad2ant1 3ad2ant2 3ad2ant3 3jaod ) ADFKBCEGADBCLFHMDAECLFINFAGCLDJOP
+( wi w3o 3jao syl3an ) ABCKDECKFGCKBEGLCKHIJBCEGMN
+77 -> 50
 
+3jaoi
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or w3o w3a df-3or df-3an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or w3o w3a df-3or df-3an
+old proof (16 steps): wph wps wi wch wps wi wth wps wi w3a wph wch wth w3o wps wi wph wps wi wch wps wi wth wps wi 3jaoi.1 3jaoi.2 3jaoi.3 3pm3.2i wph wps wch wth 3jao ax-mp
+new proof (14 steps): wph wch wth w3o wps wi wph wps wi wch wps wi wth wps wi 3jaoi.1 3jaoi.2 3jaoi.3 wph wps wch wth 3jaob mpbir3an
+( wi w3a w3o 3pm3.2i 3jao ax-mp ) ABHZCBHZDBHZIACDJBHNOPEFGKABCDLM
+( w3o wi 3jaob mpbir3an ) ACDHBIABICBIDBIEFGABCDJK
+66 -> 50
 
 sylnbi
 old proof (9 steps): wph wn wps wn wch wph wps sylnbi.1 notbii sylnbi.2 sylbi
@@ -244,7 +260,11 @@ new normal proof: wph wn wps wb wph wn wps wn wb wph wps wb wph wn wps pm5.18 wp
 ======= Compression not checked yet, axiom usage not checked yet ========
 check axiom usage before/after: sh tr looinv /ax
 
-unifor max depth 2:
+unifort max depth 2:
+
+syld3an1
+old proof (11 steps): wch wps wth w3a wph wps wth wta syld3an1.1 wch wps wth simp2 wch wps wth simp3 syld3an1.2 syl3anc
+new proof (10 steps): wph wch wps wth w3a wta syld3an1.1 wph wps wth wta wch syld3an1.2 3adant3r1 mpancom
 
 unifor max depth 3:
 
