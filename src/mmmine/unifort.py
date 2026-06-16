@@ -474,7 +474,8 @@ if __name__ == "__main__":
 
     max_depth = 2
 
-    do_run = True
+    do_run = False
+    do_reload = True
     exclude_list = ms.new_usage_discouraged()
     start_from_goal_index = 783 #175 jad # 1374 syl332anc took 24223s before unify_with_filter
     stop_after = -1
@@ -485,9 +486,13 @@ if __name__ == "__main__":
 
     if do_run:
 
-        goal_times = {}
-        goal_proofs = {}
-        shortened = []
+        if do_reload:
+            with open("ufrt.pkl","rb") as f: (goal_proofs, goal_times, shortened) = pk.load(f)
+        else:
+            goal_times = {}
+            goal_proofs = {}
+            shortened = set()
+
         for gl, goal_label in enumerate(goal_labels):
             if gl < start_from_goal_index: continue
             if len(goal_times) == stop_after: break
@@ -555,7 +560,7 @@ if __name__ == "__main__":
                 #     print(proof_root.tree_string())
                 print(f"total time: {total_time:.3f}s")
                 if new_size < old_size:
-                    shortened.append(goal_label)
+                    shortened.add(goal_label)
                     print("You found one!!!")
                     # input('__')
     
