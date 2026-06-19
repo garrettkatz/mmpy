@@ -266,6 +266,13 @@ syld3an1
 old proof (11 steps): wch wps wth w3a wph wps wth wta syld3an1.1 wch wps wth simp2 wch wps wth simp3 syld3an1.2 syl3anc
 new proof (10 steps): wph wch wps wth w3a wta syld3an1.1 wph wps wth wta wch syld3an1.2 3adant3r1 mpancom
 
+mp3an1
+old normal proof (9 steps): wph wps wch wa wth mp3an1.1 wph wps wch wth mp3an1.2 3expb mpan
+new normal proof (8 steps): wph wps wch wth mp3an1.1 wph wps wch wth mp3an1.2 3expa mpanl1
+new: ( 3expa mpanl1 )  ABCDEABCDFGH
+old: ( wa 3expb mpan ) ABCGDEABCDFHI
+
+
 unifor max depth 3:
 
 unifort max depth 3:

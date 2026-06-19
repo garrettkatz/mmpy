@@ -474,30 +474,36 @@ if __name__ == "__main__":
 
     max_depth = 2
 
-    do_run = False
+    do_run = True
     do_reload = True
+    do_skip = True
     exclude_list = ms.new_usage_discouraged()
-    start_from_goal_index = 783 #175 jad # 1374 syl332anc took 24223s before unify_with_filter
+    start_from_goal_index = 1443 # 783 (d3->2) #175 jad # 1374 syl332anc took 24223s before unify_with_filter
     stop_after = -1
 
     db = ms.load_pl()
-    # goal_labels = ["expt"]
+    # goal_labels = ["id"]
     goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p" and label[-3:] not in ("ALT", "OLD") and label not in exclude_list]
 
     if do_run:
 
         if do_reload:
-            with open("ufrt.pkl","rb") as f: (goal_proofs, goal_times, shortened) = pk.load(f)
+            with open("ufrt.pkl","rb") as f: (goal_times, goal_proofs, novel, short) = pk.load(f)
         else:
             goal_times = {}
             goal_proofs = {}
-            shortened = set()
+            novel = set()
+            short = set()
+
+        new_attempt = new_proved = new_novel = new_short = 0
 
         for gl, goal_label in enumerate(goal_labels):
             if gl < start_from_goal_index: continue
-            if len(goal_times) == stop_after: break
+            if goal_label in goal_proofs: continue
+            if new_attempt == stop_after: break
+            new_attempt += 1
     
-            print(f"\n *** attempting {goal_label} ({gl} of {len(goal_labels)}), {len(shortened)} shortened and {len(goal_proofs)} proved so far... ***\n")
+            print(f"\n *** attempting {goal_label} ({gl} of {len(goal_labels)}). proved : novel : short (new) = {len(goal_proofs)} ({new_proved}) : {len(novel)} ({new_novel}) : {len(short)} ({new_short}) ***\n")
             start_time = perf_counter()
     
             claim = db.rules[goal_label]
@@ -549,8 +555,11 @@ if __name__ == "__main__":
                 old_size = len(old_root.all_steps())
     
                 claim.consequent = md.Statement(claim.consequent.label, claim.consequent.tag, claim.consequent.tokens, new_normal_proof)
-                mp.verify_normal_proof(db, claim) # raises assertion error if unverified
-    
+                new_root, new_steps = mp.verify_normal_proof(db, claim) # raises assertion error if unverified
+                # print(len(new_steps), "new steps")
+                # print(old_root.tree_string())
+                # print(new_root.tree_string())
+
                 print("Verified!")
                 print(f"old proof ({old_size} steps): " + " ".join(old_normal_proof))
                 # if new_size > old_size:
@@ -560,7 +569,8 @@ if __name__ == "__main__":
                 #     print(proof_root.tree_string())
                 print(f"total time: {total_time:.3f}s")
                 if new_size < old_size:
-                    shortened.add(goal_label)
+                    short.add(goal_label)
+                    new_short += 1
                     print("You found one!!!")
                     # input('__')
     
@@ -569,20 +579,24 @@ if __name__ == "__main__":
                 # input('..')
     
                 goal_proofs[goal_label] = new_normal_proof
+                new_proved += 1
 
-            with open("ufrt.pkl","wb") as f: pk.dump((goal_proofs, goal_times, shortened), f)
+                if old_normal_proof != new_normal_proof:
+                    novel.add(goal_label)
+                    new_novel += 1
 
-    with open("ufrt.pkl","rb") as f: (goal_proofs, goal_times, shortened) = pk.load(f)
+            with open("ufrt.pkl","wb") as f: pk.dump((goal_times, goal_proofs, novel, short), f)
+
+    with open("ufrt.pkl","rb") as f: (goal_times, goal_proofs, novel, short) = pk.load(f)
 
     # reload for original compressed proofs
     db = ms.load_pl()
 
-    print(f"Grand total time = {sum(goal_times.values())}s, {len(goal_proofs)} of {len(goal_times)} proved, {len(shortened)} shortened:")
-    print(shortened)
+    print(f"Grand total time = {sum(goal_times.values())}s, {len(goal_proofs)} of {len(goal_times)} proved, {len(novel)} novel, {len(short)} short")
     
-    if len(shortened) > 0:
-        print("shortened list:")
-        for label in shortened:
+    if len(short) > 0:
+        print("short list:")
+        for label in short:
             old_root, _ = mp.verify_compressed_proof(db, db.rules[label])
             old_normal_proof = old_root.normal_proof()
             print(f"label {label}:")
