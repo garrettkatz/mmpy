@@ -109,7 +109,7 @@ class TermManager:
 
     def encode(self, token):
         """
-        Return integer id encoding token, allocating new one if needed
+        Return integer encoding token, allocating new one if needed
         """
         if token not in self.encoder:
             n = len(self.encoder)
@@ -118,9 +118,15 @@ class TermManager:
         return self.encoder[token]
 
     def decode(self, i):
+        """
+        Return token encoded by integer i, or default token if not already encoded
+        """
         return self.decoder.get(i, f"t{i}")
 
     def serialize(self, term):
+        """
+        Return decoded token sequence for term
+        """
         return tuple([self.decode(u) for (u, _) in term])
 
     def standardize_apart(self, used_variables, term, term_variables):
@@ -142,7 +148,6 @@ class TermManager:
         term_variables = {standardizer[v] for v in term_variables}
 
         return term, term_variables
-
 
     def token_term(self, token):
         """
@@ -193,29 +198,29 @@ class TermManager:
         # extract rule and mandatory variables
         rule = self.rules[rule_index]
 
-        # process tokens left to right, building up substitution 
+        # process tokens left to right, building up substitution
         i = 0 # index in provided token sequence, not rule token sequence
         substitution = {}
         for tok in rule.consequent.tokens[1:]: # omit typecode
 
             # ran out of provided tokens, rule does not apply
             if i >= len(tokens): return None
-    
+
             # current rule token is mandatory variable
             if tok in rule.mandatory:
 
                 # try parsing replacement sub-term
                 subterm = self.parse(tokens[i:], sentinels)
                 if subterm is None: return None # parsing failed, rule does not apply
-    
+
                 # update substitution with parsed subterm
                 v = self.encode(tok)
                 if v not in substitution: substitution[v] = subterm
                 else: assert substitution[v] == subterm
-    
+
                 # advance past parsed subterm
                 i += len(subterm)
-    
+
             # current rule token is constant and does not match, rule does not apply
             elif tok != tokens[i]: return None
 
@@ -271,6 +276,19 @@ class TermManager:
                 substitution = {v: self.serialize(t) for (v,t) in s.items()}
                 steps[conclusion] = mp.ProofStep(conclusion, rule, dependencies, substitution)
             return steps[conclusion]
+
+    def termify(self, rule):
+        """
+        Converts statements in a Rule object to terms
+        Returns (consequent, essentials, mandatory)
+            consequent: term for rule's consequent
+            essentials[i]: (statement label, term) for rule's ith essential hypothesis
+            mandatory: set of integer encodings of mandatory variables in rule
+        """
+        consequent = self.parse(rule.consequent.tokens[1:], set(rule.mandatory.keys()))
+        essentials = [(h.label, self.parse(h.tokens[1:], set(rule.mandatory.keys()))) for h in rule.essentials]
+        mandatory = {self.encode(t) for t in rule.mandatory.keys()}
+        return (consequent, essentials, mandatory)
 
 @profile
 # def unify(t1, t2, variables):

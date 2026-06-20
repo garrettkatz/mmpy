@@ -148,17 +148,17 @@ class TermTrieNode:
             elif tok == term[0][0]:
                 # print(f"tok {tok} == term[0][0] {term[0][0]}")
                 yield from child.unifications_with(term[1:], variables, sub, path_term + [[tok, n]])
-                    
+
             # can tok be replaced?
             elif tok in variables:
                 # print(f"tok {tok} in variables {variables}")
                 rep_len = term[0][1]
                 replacement, tail = term[:rep_len], term[rep_len:]
                 replacement = mt.substitute(replacement, sub) # lazy substitution
-    
+
                 # do not yield if variable tok occurs in its replacement
                 if any(u==tok for (u, _) in replacement): continue
-    
+
                 # otherwise incorporate into substitution and advance to tails
                 new_sub = mt.compose_single(tok, replacement, sub)  # result of performing substitution sub followed by {tok: replacement}
                 yield from child.unifications_with(tail, variables, new_sub, path_term + [[tok, n]])
@@ -174,12 +174,12 @@ class TermTrieNode:
                     replacement = mt.substitute(replacement, sub) # lazy substitution
 
                     # print(f" {n}-step lookahead replacement {replacement} for variable {v}")
-        
+
                     # do not yield if v occurs in replcement
                     if any(u==v for (u, _) in replacement):
                         # print(f" occurs check failed")
                         continue
-        
+
                     # otherwise incorporate into substitution and advance to tails
                     new_sub = mt.compose_single(v, replacement, sub)
                     # print(f" occurs check passed, new sub:")
@@ -192,66 +192,8 @@ class TermTrieNode:
         # print("loopdone")
         return # end of def
 
-        # ================ non-trie version:
-        
-        # build up substitution while consuming term heads until empty
-        # s = {}
-        # while len(t1) > 0 and len(t2) > 0:
-    
-        #     # lazy substitution
-        #     if t1[0][0] in s:
-        #         t1 = s[t1[0][0]] + t1[1:]
-        #         continue
-    
-        #     if t2[0][0] in s:
-        #         t2 = s[t2[0][0]] + t2[1:]
-        #         continue
-    
-        #     # if heads match, advance to tails
-        #     if t1[0][0] == t2[0][0]:
-        #         t1 = t1[1:]
-        #         t2 = t2[1:]
-        #         continue
-    
-        #     # check if either term head is a variable
-        #     v1 = (t1[0][0] in variables)
-        #     v2 = (t2[0][0] in variables)
-        #     if v1 or v2:
-    
-        #         # swap if needed so t1 has the variable head
-        #         if not v1: t1, t2 = t2, t1
-    
-        #         # extract variable and subterm
-        #         v = t1[0][0] # variable integer id
-        #         n = t2[0][1] # length of replacement term
-        #         st = t2[:n] # replacement term
-        #         st = substitute(st, s) # lazy substitution
-    
-        #         # fail if v occurs in st
-        #         if any(u==v for (u, _) in st): return None
-    
-        #         # otherwise incorporate substitution and advance to term tails
-        #         s = compose_single(v, st, s)
-        #         t1 = t1[1:]
-        #         t2 = t2[n:]
-        #         # t1 = substitute_single(t1[1:], v, st)
-        #         # t2 = substitute_single(t2[n:], v, st)
-        #         # new_s = {v: st}
-        #         # s = compose(new_s, s)
-        #         # t1 = substitute(t1[1:], new_s)
-        #         # t2 = substitute(t2[n:], new_s)
-    
-        #     # otherwise term heads are distinct constants so fail
-        #     else: return None
-    
-        # # success if both terms fully consumed
-        # if len(t1) == len(t2) == 0: return s
-    
-        # # otherwise failure
-        # return None
 
-
-if __name__ == "__main__":    
+if __name__ == "__main__":
 
     import src.metamathpy.setmm as ms
 
@@ -398,4 +340,3 @@ if __name__ == "__main__":
 
     print(trie.tree_string(tm))
 
-    
