@@ -65,7 +65,8 @@ class SearchNode:
 
         # consequent-specific unifications at last step
         if step_depth + 1 == proof_size:
-            for sub_working_proof in self.rule_index.consequent_specific_unifications(working_proof, step_depth, min_essentials):
+            # def consequent_specific_unifications(self, working_proof, step_depth, min_new_usages, min_essentials, max_essentials)
+            for sub_working_proof in self.rule_index.consequent_specific_unifications(working_proof, step_depth, min_essentials, 0, max_essentials):
                 # print(working_proof)
                 # input("consequent-specific generated this working_proof ^^")
                 child = SearchNode(self.db, self.claim, self.rule_index, sub_working_proof, self.offset)
@@ -73,7 +74,8 @@ class SearchNode:
 
         # consequent-agnostic unifications at previous steps
         else:
-            for sub_working_proof in self.rule_index.consequent_agnostic_unifications(working_proof, step_depth, min_essentials):
+            # def consequent_agnostic_unifications(self, working_proof, step_depth, min_new_usages, min_essentials, max_essentials)
+            for sub_working_proof in self.rule_index.consequent_agnostic_unifications(working_proof, step_depth, min_essentials, 0, max_essentials):
                 # print(working_proof)
                 # input("consequent-agnostic generated this working_proof ^^")
                 child = SearchNode(self.db, self.claim, self.rule_index, sub_working_proof, self.offset)
@@ -136,8 +138,8 @@ if __name__ == "__main__":
     do_reload = False
     do_skip = True
     exclude_list = ms.new_usage_discouraged()
-    start_from_goal_index = 100 # 783 (d3->2) #175 jad # 1374 syl332anc took 24223s before unify_with_filter
-    stop_after = 2
+    start_from_goal_index = 782 # 783 (d3->2) #175 jad # 1374 syl332anc took 24223s before unify_with_filter
+    stop_after = 1
 
     db = ms.load_pl()
     # goal_labels = ["id"]

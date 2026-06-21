@@ -247,73 +247,79 @@ class RuleIndex:
             max_remaining is the maximum number of remaining terms in all rules below this node
         """
         self.term_manager = term_manager
-        self.max_essentials = 0
+        self.max_essentials = max([len(r.essentials) for r in rules])
 
-        self.essential_less = [] # list of essential-less rules
+        self.essentialless_rules = [] # list of essential-less rules
+        self.essentialless_variables = set() # and their variables
 
         # keyed for rules with >= n essentials for each occurring n
-        self.consequent_trie = {} # min essentials: trie
-        self.essentials_trie = {} # min essentials: trie
-        self.variables = {} # min essentials: variable set
+        self.consequent_trie = {} # (min, max) essentials: trie
+        self.essentials_trie = {} # (min, max) essentials: trie
+        self.consequent_variables = {} # (min, max) essentials: variable set
+        self.essentials_variables = {} # (min, max) essentials: variable set
 
         for rule in rules:
             consequent, essentials, mandatory = term_manager.termify(rule)
-            self.max_essentials = max(self.max_essentials, len(essentials))
 
             # essential-less rules
             if len(essentials) == 0:
-                self.essential_less.append((rule.consequent.label, consequent))
+                self.essentialless_rules.append((rule.consequent.label, consequent))
+                self.essentialless_variables |= mandatory
 
-            for ne in range(len(essentials)+1):
+            for mxe in range(len(essentials), self.max_essentials+1):
+                for mne in range(len(essentials)+1):
 
-                if ne not in self.variables: self.variables[ne] = set()
-                self.variables[ne] |= mandatory
+                    if (mne,mxe) not in self.consequent_variables: self.consequent_variables[(mne,mxe)] = set()
+                    self.consequent_variables[(mne,mxe)] |= mandatory
 
-                # print(f"incorporating {rule}")
+                    # print(f"incorporating {rule}")
 
-                ## consequent-specific trie
-                if ne not in self.consequent_trie:
-                    self.consequent_trie[ne] = TermTrieNode()
+                    ## consequent-specific trie
+                    if (mne,mxe) not in self.consequent_trie:
+                        self.consequent_trie[(mne,mxe)] = TermTrieNode()
 
-                # incorporate consequent
-                node = self.consequent_trie[ne].incorporate(consequent)
-                if node.data is None:
-                    node.data = [[], TermTrieNode(), 0]
-                node.data[2] = max(node.data[2], len(essentials))
-
-                # incorporate any essentials
-                for e, (_, essential) in enumerate(essentials):
-                    node = node.data[1].incorporate(essential)
+                    # incorporate consequent
+                    node = self.consequent_trie[(mne,mxe)].incorporate(consequent)
                     if node.data is None:
                         node.data = [[], TermTrieNode(), 0]
-                    node.data[2] = max(node.data[2], len(essentials)-e-1)
+                    node.data[2] = max(node.data[2], len(essentials))
 
-                # store the rule label and consequent term
-                node.data[0].append((rule.consequent.label, consequent))
+                    # incorporate any essentials
+                    for e, (_, essential) in enumerate(essentials):
+                        node = node.data[1].incorporate(essential)
+                        if node.data is None:
+                            node.data = [[], TermTrieNode(), 0]
+                        node.data[2] = max(node.data[2], len(essentials)-e-1)
 
-                # for essential-less rules, skip consequent-agnostic indexing
-                if len(essentials) == 0: continue
+                    # store the rule label and consequent term
+                    node.data[0].append((rule.consequent.label, consequent))
 
-                ## essential-full consequent-agnostic trie
-                if ne not in self.essentials_trie:
-                    self.essentials_trie[ne] = TermTrieNode()
+                    # for essential-less rules, skip consequent-agnostic indexing
+                    if len(essentials) == 0: continue
 
-                # incorporate first essential
-                lab, essential = essentials[0]
-                node = self.essentials_trie[ne].incorporate(essential)
-                if node.data is None:
-                    node.data = [[], TermTrieNode(), 0]
-                node.data[2] = max(node.data[2], len(essentials)-1)
+                    if (mne,mxe) not in self.essentials_variables: self.essentials_variables[(mne,mxe)] = set()
+                    self.essentials_variables[(mne,mxe)] |= mandatory
 
-                # incorporate any remaining essentials
-                for e, (_, essential) in enumerate(essentials[1:]):
-                    node = node.data[1].incorporate(essential)
+                    ## essential-full consequent-agnostic trie
+                    if (mne,mxe) not in self.essentials_trie:
+                        self.essentials_trie[(mne,mxe)] = TermTrieNode()
+
+                    # incorporate first essential
+                    lab, essential = essentials[0]
+                    node = self.essentials_trie[(mne,mxe)].incorporate(essential)
                     if node.data is None:
                         node.data = [[], TermTrieNode(), 0]
-                    node.data[2] = max(node.data[2], len(essentials)-2)
+                    node.data[2] = max(node.data[2], len(essentials)-1)
 
-                # store the rule label and consequent term
-                node.data[0].append((rule.consequent.label, consequent))
+                    # incorporate any remaining essentials
+                    for e, (_, essential) in enumerate(essentials[1:]):
+                        node = node.data[1].incorporate(essential)
+                        if node.data is None:
+                            node.data = [[], TermTrieNode(), 0]
+                        node.data[2] = max(node.data[2], len(essentials)-2)
+
+                    # store the rule label and consequent term
+                    node.data[0].append((rule.consequent.label, consequent))
 
     def tree_string(self, node, prefix=""):
         if node.data is None:
@@ -325,16 +331,39 @@ class RuleIndex:
             s.append(f"{prefix}{self.term_manager.decode(t)} [{t},:{n}] {cs}")
         return "\n".join(s)
 
+    def full_string(self):
+        print("keys")
+        print(self.consequent_trie.keys())
+        print(self.essentials_trie.keys())
+        s = [
+            "\n **** rule consequent-specific trie ****\n",
+            self.tree_string(self.consequent_trie[0,self.max_essentials]),
+            "\n **** rule consequent-agnostic trie ****\n",
+            self.tree_string(self.essentials_trie[0,self.max_essentials]),
+            "\n **** rule essential-less list ****\n",
+        ]
+        for (label, consequent) in self.essentialless_rules:
+            s.append(label + ' '.join(self.term_manager.serialize(consequent)))# + consequent)
+        return "\n".join(s)
+
     @profile
-    def consequent_specific_unifications(self, working_proof, step_depth, min_essentials):
+    def consequent_specific_unifications(self, working_proof, step_depth, min_new_usages, min_essentials, max_essentials):
         """
         Yields substituted working proofs after unifying with rule index
-        Only yields results with at least min_essentials new usages
+        Only yields results with at least min_new_usages new usages
+        Only yields results using rules with between (min,max) essentials
         Unifies rule consequents with working_proof.assertions[step_depth] and hypotheses with working_proof.assertions[:step_depth]
         """
+
+        # you need at least min_new_usages essentials to hit usage quota
+        low_essentials = max(min_essentials, min_new_usages)
+
+        # dont yield if no rules exist in this range
+        if (low_essentials, max_essentials) not in self.consequent_variables: return
+        variables = self.consequent_variables[(low_essentials, max_essentials)] | working_proof.variables
+
         conclusion = working_proof.assertions[step_depth]
-        variables = self.variables[min_essentials] | working_proof.variables
-        for (sub, path_term, data) in self.consequent_trie[min_essentials].unifications_with(conclusion, variables):
+        for (sub, path_term, data) in self.consequent_trie[(low_essentials, max_essentials)].unifications_with(conclusion, variables):
             # applicable rules without essentials
             for (label, _) in data[0]:
                 sub_working_proof = working_proof.substitute(sub, variables)
@@ -342,20 +371,30 @@ class RuleIndex:
                 yield sub_working_proof
             # applicable rules with essentials
             # print(f"consequent-specific unified {' '.join(working_proof.term_manager.serialize(path_term))} with step {step_depth}")
-            yield from working_proof.essential_unifications(data[1], step_depth, variables, sub, use_quota=min_essentials)
+            yield from working_proof.essential_unifications(data[1], step_depth, variables, sub, use_quota=min_new_usages)
 
     @profile
-    def consequent_agnostic_unifications(self, working_proof, step_depth, min_essentials):
-        variables = self.variables[min_essentials] | working_proof.variables
-        # essential-less rules, unless min_essentials is > 0
-        if min_essentials == 0:
-            for (label, consequent) in self.essential_less:
+    def consequent_agnostic_unifications(self, working_proof, step_depth, min_new_usages, min_essentials, max_essentials):
+
+        # you need at least min_new_usages essentials to hit usage quota
+        low_essentials = max(min_essentials, min_new_usages)
+
+        # essential-less rules, unless low_essentials is > 0
+        if low_essentials == 0:
+            variables = self.essentialless_variables | working_proof.variables
+            for (label, consequent) in self.essentialless_rules:
                 # replace step_depth assertion with consequent
                 sub_working_proof = working_proof.replace_assertion(step_depth, consequent, variables)
                 sub_working_proof.justifications[step_depth] = label
                 yield sub_working_proof
+
         # essential-full rules
-        yield from working_proof.essential_unifications(self.essentials_trie[min_essentials], step_depth, variables, use_quota=min_essentials)
+
+        # dont yield if no rules exist in this range
+        if (low_essentials, max_essentials) not in self.essentials_variables: return
+        variables = self.essentials_variables[(low_essentials, max_essentials)] | working_proof.variables
+
+        yield from working_proof.essential_unifications(self.essentials_trie[(low_essentials, max_essentials)], step_depth, variables, use_quota=min_new_usages)
 
 if __name__ == "__main__":
 
@@ -383,5 +422,5 @@ if __name__ == "__main__":
     print("\n **** rule consequent-agnostic trie ****\n")
     print(rule_index.tree_string(rule_index.essentials_trie[0]))
     print("\n **** rule essential-less list ****\n")
-    for (label, consequent) in rule_index.essential_less:
+    for (label, consequent) in rule_index.essentialless_rules:
         print(label, ' '.join(term_manager.serialize(consequent)), consequent)

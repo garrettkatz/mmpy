@@ -20,43 +20,48 @@ class SearchNode:
         self.offset = offset
         self.edge_count = edge_count
 
-    def reconstruct_proof(self, standardizer, rules):
-        """
-        wrapper for working proof finalize
-        """
-        # TODO: disjoint variable requirements
-
-        return self.working_proof.finalize(standardizer, rules)
-        pass # unirule
-
     @profile
-    def dfs(self, step_depth=None):
+    def dfs(self, step_index=None):
 
         # print("current working proof:")
         # print(self.working_proof)
         # input('.')
 
         # default: start after last essential hypothesis
-        if step_depth is None:
-            step_depth = len(self.claim.essentials)
+        if step_index is None:
+            step_index = len(self.claim.essentials)
 
         num_edges = sum(map(len, self.working_proof.dependencies))
         proof_size = len(self.working_proof.assertions)
 
         if num_edges > self.edge_count: return # todo: prune before recursive call
 
-        if step_depth == proof_size:
-            if num_edges == self.edge_count: yield self # only yield for exact edge count
+        if step_index == proof_size:
+            assert num_edges == self.edge_count
+            yield self # only yield for exact edge count
+            # if num_edges == self.edge_count: yield self # only yield for exact edge count
             return
 
         # Determine how many essentials are needed to use all steps
         max_essentials = self.rule_index.max_essentials
         num_unused = sum((not u) for u in self.working_proof.used) - 1 # -1 for claim consequent
-        steps_remaining = proof_size - step_depth
+        steps_remaining = proof_size - step_index
         min_essentials = max(0, num_unused - (steps_remaining - 1) * max_essentials)
+        min_new_usage = min_essentials
+
+        # maximum remaining edges you can create is steps_remaining * rule_index.max_essentials
+        # minimum you can create is steps_remaining * (rule_index.min_essentials=0) == 0 (0 for PL)
+        # number you need to create is self.edge_count
+        # maximum you can create now while keeping self.edge_count reachable is:
+            # self.edge_count, since after that essential-less rules would add no more edges (not accounting for usage requirements)
+            # accounting for usage requirements, max you can create now is self.edge_count - (steps_remaining-1)
+                # since each step remaining (except goal) needs at least one edge separate from current step_index to be used
+        max_current_essentials = min(max_essentials, self.edge_count - (steps_remaining - 1))
+        # minimum you need to create now to keep self.edge_count reachable is:
 
         # Don't do more essentials than there are edges left in the target edge count (or less at last step)
         # Do enough essentials to still be able to reach target edge count
+        # you need to *enumerate in order of* increasing edge count **without** duplicating.  the max/min essentials for edge count is critical.
 
         # skip if impossible to use all steps
         if min_essentials > max_essentials: return
@@ -68,8 +73,8 @@ class SearchNode:
         # input('standardized ^^')
 
         # consequent-specific unifications at last step
-        if step_depth + 1 == proof_size:
-            for sub_working_proof in self.rule_index.consequent_specific_unifications(working_proof, step_depth, min_essentials):
+        if step_index + 1 == proof_size:
+            for sub_working_proof in self.rule_index.consequent_specific_unifications(working_proof, step_index, min_new_usage, 0, max_current_essentials):
                 # print(working_proof)
                 # input("consequent-specific generated this working_proof ^^")
                 child = SearchNode(self.db, self.claim, self.rule_index, sub_working_proof, self.offset, self.edge_count)
@@ -77,11 +82,11 @@ class SearchNode:
 
         # consequent-agnostic unifications at previous steps
         else:
-            for sub_working_proof in self.rule_index.consequent_agnostic_unifications(working_proof, step_depth, min_essentials):
+            for sub_working_proof in self.rule_index.consequent_agnostic_unifications(working_proof, step_index, min_new_usage, 0, max_current_essentials):
                 # print(working_proof)
                 # input("consequent-agnostic generated this working_proof ^^")
                 child = SearchNode(self.db, self.claim, self.rule_index, sub_working_proof, self.offset, self.edge_count)
-                yield from child.dfs(step_depth + 1)
+                yield from child.dfs(step_index + 1)
 
         return
 
@@ -94,6 +99,8 @@ def ids(db, claim, entailment_rules, term_manager, max_proof_size, max_edge_coun
 
     # build rule index from rules
     rule_index = mu.RuleIndex(entailment_rules, term_manager)
+    # print(rule_index.full_string())
+    # input('.')
 
     # termify claim
     consequent, essentials, mandatory = term_manager.termify(claim)
@@ -127,7 +134,6 @@ def ids(db, claim, entailment_rules, term_manager, max_proof_size, max_edge_coun
                 # input("Completed proof, canonicalized ^^")
 
                 # check for proof
-                # root_step = search_leaf.reconstruct_proof(standardizer)
                 root_step = search_leaf.working_proof.finalize(standardizer, db.rules)
 
                 if root_step is not None: return root_step
@@ -141,19 +147,21 @@ if __name__ == "__main__":
     import src.metamathpy.setmm as ms
     import src.metamathpy.database as md
 
-    max_node_depth = 3
-    max_edge_count = 4 # make sure ->
+    max_node_depth = 4
 
-        this is large enough to cover all proofs up to node depth
-        you need to *enumerate in order of* increasing edge count **without** duplicating.  the max/min essentials for edge count is critical.
-        could you possibly show ordered by edge count is less total num of search unifies on average than random ordering within last proof size depth
+    # PL |- rules have at most 10 essentials, though multiple essentials could conceivably bind the same proof step.  that's still 10 unifications and "edges".
+    # if every non-claim-hypothesis essential proof step is justified by 10 essentials, then # edges is 10 * (# nodes - # claim essentials) = 10 * max_node_depth
+    MAX_H_PL = 10
+
+    # max_edge_count = MAX_H_PL * max_node_depth
+    max_edge_count = 7 # 30
 
     do_run = True
     do_reload = False
     do_skip = True
     exclude_list = ms.new_usage_discouraged()
-    start_from_goal_index = 0 # 783 (d3->2) #175 jad # 1374 syl332anc took 24223s before unify_with_filter
-    stop_after = 100
+    start_from_goal_index = 783 # (d3->2) #175 jad # 1374 syl332anc took 24223s before unify_with_filter
+    stop_after = -1
 
     db = ms.load_pl()
     # goal_labels = ["id"]

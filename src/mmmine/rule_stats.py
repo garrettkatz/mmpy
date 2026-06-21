@@ -5,6 +5,23 @@ if __name__ == "__main__":
 
     db = ms.load_pl()
 
+    essential_counts = {}
+    big_one = None
+    for rule in db.rules.values():
+        if rule.consequent.tag not in ("$a", "$p"): continue
+        if rule.consequent.tokens[0] != "|-": continue
+        H = len(rule.essentials)
+        essential_counts[H] = essential_counts.get(H, 0) + 1
+        if H == 10: big_one = rule
+
+    print("PL essential count histogram:")
+    for H in sorted(essential_counts.keys()):
+        print(H, essential_counts[H])
+
+    print("Biggest rule:")
+    print(big_one)
+    input('..')
+
     essentialess_rules = []
     for rule in db.rules.values():
         if rule.consequent.tag != "$p": continue
