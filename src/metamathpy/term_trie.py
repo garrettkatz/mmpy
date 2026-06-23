@@ -58,12 +58,12 @@ class TermTrieNode:
 
     def instantiate(self, variables, term):
         """
-        find substitution of a term indexed in self that instantiate provided term
+        find substitution of a term indexed in self that instantiates provided term
         "one-way" version of unification
         for example, term = substitution of a rule statement indexed in self
         fails if the term is not an instance of any term in the trie
         returns substitution and index data at self's corresponding leaf, or None if failure
-        todo: generate all instead of returning at most one?
+        todo: generate all instead of returning at most one? or maybe not...
         """
 
         if len(term) == 0:

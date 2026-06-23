@@ -22,8 +22,24 @@ class SearchNode:
         self.offset = offset
         self.edge_count = edge_count
 
+    def complete_essentialless(self):
+        """
+        Tries justifying each remaining unjustified node in self's working proof with essentialless rules
+        Returns new working proof with justifications complete (or None on failure)
+        """
+        p = self.working_proof.copy
+        for step in p > len(claim.essentials):
+            if step justification == "" (assert len(dep_idxs)==0):
+                try rule_index.instantiate(step assertion)
+                    continue
+                except: return None
+        return p
+
     @profile
-    def dfs(self, step_index=None):
+    def dfs(self, step_index=None, timeout=None):
+
+        # stop if out of time
+        if timeout is not None and perf_counter() > timeout: return
 
         # print("current working proof:")
         # print(self.working_proof)
@@ -88,7 +104,7 @@ class SearchNode:
                 # print(working_proof)
                 # input("consequent-agnostic generated this working_proof ^^")
                 child = SearchNode(self.db, self.claim, self.rule_index, sub_working_proof, self.offset, self.edge_count)
-                yield from child.dfs(step_index + 1)
+                yield from child.dfs(step_index + 1, timeout)
 
         return
 
@@ -98,8 +114,6 @@ def ids(db, claim, entailment_rules, term_manager, max_proof_size, max_edge_coun
     """
     print(f"proving {claim}")
     print(f"old proof: {' '.join(claim.consequent.proof)}")
-
-    timeout = perf_counter() + max_time
 
     # build rule index from rules
     rule_index = mu.RuleIndex(entailment_rules, term_manager)
@@ -117,6 +131,8 @@ def ids(db, claim, entailment_rules, term_manager, max_proof_size, max_edge_coun
     sentinels = set(standardizer.keys())
     offset = offset + len(mandatory)
 
+    timeout = perf_counter() + max_time
+
     # 2d IDS of #edge and #node, DP? different traversal orders?
 
     # every node (except last) needs at least one outgoing edge to be used.  So E is >= N-1, so N <= E+1, so N < E+2
@@ -131,17 +147,22 @@ def ids(db, claim, entailment_rules, term_manager, max_proof_size, max_edge_coun
             # try each proof up to current limit
             initial_proof = mu.WorkingProof.initialize(claim, consequent, essentials, offset, proof_size, term_manager)
             search_root = SearchNode(db, claim, rule_index, initial_proof, offset, edge_count)
-            for search_leaf in search_root.dfs():
+            for search_leaf in search_root.dfs(timeout=timeout):
 
                 # completed_proof = search_leaf.working_proof.canonicalize(standardizer)
                 # print(completed_proof)
                 # input("Completed proof, canonicalized ^^")
 
+                # here, try complete essentialless
+                completed_proof = search_leaf.complete_essentialless()
+                if completed_proof is None: continue
+
                 # check for proof
-                root_step = search_leaf.working_proof.finalize(standardizer, db.rules)
+                root_step = completed_proof.finalize(standardizer, db.rules)
 
                 if root_step is not None: return root_step
-                if perf_counter() > timeout: return None
+
+            if perf_counter() > timeout: return None
 
     return None
 
@@ -151,21 +172,21 @@ if __name__ == "__main__":
     import src.metamathpy.setmm as ms
     import src.metamathpy.database as md
 
-    max_time = 10 # 60*10 # 10 min per proof
-    max_node_depth = 4
+    max_time = 60 # seconds
+    max_node_depth = 5
 
     # PL |- rules have at most 10 essentials, though multiple essentials could conceivably bind the same proof step.  that's still 10 unifications and "edges".
     # if every non-claim-hypothesis essential proof step is justified by 10 essentials, then # edges is 10 * (# nodes - # claim essentials) = 10 * max_node_depth
     MAX_H_PL = 10
 
-    # max_edge_count = MAX_H_PL * max_node_depth
-    max_edge_count = 7 # 30
+    max_edge_count = MAX_H_PL * max_node_depth
+    # max_edge_count = 7 # 30
 
     do_run = True
-    do_reload = False
+    do_reload = True
     do_skip = True
     exclude_list = ms.new_usage_discouraged()
-    start_from_goal_index = 783 # (d3->2) #175 jad # 1374 syl332anc took 24223s before unify_with_filter
+    start_from_goal_index = 782 # (d3->2) #175 jad # 1374 syl332anc took 24223s before unify_with_filter
     stop_after = -1
 
     db = ms.load_pl()
@@ -175,7 +196,7 @@ if __name__ == "__main__":
     if do_run:
 
         if do_reload:
-            with open("ufre.pkl","rb") as f: (goal_times, goal_proofs, novel, short) = pk.load(f)
+            with open("ufrl.pkl","rb") as f: (goal_times, goal_proofs, novel, short) = pk.load(f)
         else:
             goal_times = {}
             goal_proofs = {}
@@ -256,9 +277,9 @@ if __name__ == "__main__":
                     novel.add(goal_label)
                     new_novel += 1
 
-            with open("ufre.pkl","wb") as f: pk.dump((goal_times, goal_proofs, novel, short), f)
+            with open("ufrl.pkl","wb") as f: pk.dump((goal_times, goal_proofs, novel, short), f)
 
-    with open("ufre.pkl","rb") as f: (goal_times, goal_proofs, novel, short) = pk.load(f)
+    with open("ufrl.pkl","rb") as f: (goal_times, goal_proofs, novel, short) = pk.load(f)
 
     # reload for original compressed proofs
     db = ms.load_pl()
@@ -273,3 +294,5 @@ if __name__ == "__main__":
             print(f"label {label}:")
             print(f"new normal proof: {' '.join(goal_proofs[label])}")
             print(f"old normal proof: {' '.join(old_normal_proof)}")
+
+

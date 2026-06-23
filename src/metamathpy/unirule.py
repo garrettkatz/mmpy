@@ -394,6 +394,7 @@ class RuleIndex:
         if (low_essentials, max_essentials) not in self.essentials_variables: return
         variables = self.essentials_variables[(low_essentials, max_essentials)] | working_proof.variables
 
+        # if low_essentials==0, doesnt this duplicating work?
         yield from working_proof.essential_unifications(self.essentials_trie[(low_essentials, max_essentials)], step_depth, variables, use_quota=min_new_usages)
 
 if __name__ == "__main__":
