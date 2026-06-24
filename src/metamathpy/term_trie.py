@@ -59,7 +59,8 @@ class TermTrieNode:
     def instantiate(self, variables, term):
         """
         find substitution of a term indexed in self that instantiates provided term
-        "one-way" version of unification
+        variables: superset of variables in terms incorporated in self
+        "one-way" version of unification, only self's variables get substituted
         for example, term = substitution of a rule statement indexed in self
         fails if the term is not an instance of any term in the trie
         returns substitution and index data at self's corresponding leaf, or None if failure
@@ -72,9 +73,15 @@ class TermTrieNode:
 
         for (tok, n), child in self.branches.items():
             if tok in variables:
+
                 for _, descendent in child.look_ahead(n-1): # already took 1 step to get to child
                     sub, result = descendent.instantiate(variables, term[n:])
                     if sub is not None:
+
+                        # avoid conflicting substitutions
+                        if tok in sub and sub[tok] != term[:n]: continue
+
+                        # no conflict so yield
                         sub[tok] = term[:n]
                         return sub, result
             else:

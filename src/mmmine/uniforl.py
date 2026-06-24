@@ -1,3 +1,4 @@
+import numpy as np
 from time import perf_counter
 
 import src.metamathpy.proof as mp
@@ -27,12 +28,30 @@ class SearchNode:
         Tries justifying each remaining unjustified node in self's working proof with essentialless rules
         Returns new working proof with justifications complete (or None on failure)
         """
-        p = self.working_proof.copy
-        for step in p > len(claim.essentials):
-            if step justification == "" (assert len(dep_idxs)==0):
-                try rule_index.instantiate(step assertion)
-                    continue
-                except: return None
+        p = self.working_proof
+        for i in range(len(p.claim.essentials), len(p.assertions)):
+            if p.justifications[i] == "":
+                assert len(p.dependencies[i]) == 0
+
+                # instantiate is wrong? ax1 instantiated incorrectly?
+                sub, data = self.rule_index.consequent_trie[0,0].instantiate(self.rule_index.consequent_variables[0,0], p.assertions[i])
+                if data is None:
+                    return None
+
+                (rules, _, _) = data
+                if len(rules) == 0:
+                    return None # no way to justify this step
+
+                # todo: yield from rules?
+                (label, consequent) = rules[0]
+                # print('sub', sub)
+                # print(np.array(consequent).T)
+                # print(self.rule_index.term_manager.serialize(consequent))
+                # print(np.array(mt.substitute(consequent, sub)).T)
+                # print(self.rule_index.term_manager.serialize(mt.substitute(consequent, sub)))
+                p = p.replace_assertion(i, mt.substitute(consequent, sub), p.variables)
+                p.justifications[i] = label
+
         return p
 
     @profile
@@ -92,6 +111,7 @@ class SearchNode:
 
         # consequent-specific unifications at last step
         if step_index + 1 == proof_size:
+            # for sub_working_proof in self.rule_index.consequent_specific_unifications_defer(working_proof, step_index, min_new_usage, 0, max_current_essentials):
             for sub_working_proof in self.rule_index.consequent_specific_unifications(working_proof, step_index, min_new_usage, 0, max_current_essentials):
                 # print(working_proof)
                 # input("consequent-specific generated this working_proof ^^")
@@ -100,6 +120,7 @@ class SearchNode:
 
         # consequent-agnostic unifications at previous steps
         else:
+            # for sub_working_proof in self.rule_index.consequent_agnostic_unifications_defer(working_proof, step_index, min_new_usage, 0, max_current_essentials):
             for sub_working_proof in self.rule_index.consequent_agnostic_unifications(working_proof, step_index, min_new_usage, 0, max_current_essentials):
                 # print(working_proof)
                 # input("consequent-agnostic generated this working_proof ^^")
@@ -149,18 +170,23 @@ def ids(db, claim, entailment_rules, term_manager, max_proof_size, max_edge_coun
             search_root = SearchNode(db, claim, rule_index, initial_proof, offset, edge_count)
             for search_leaf in search_root.dfs(timeout=timeout):
 
-                # completed_proof = search_leaf.working_proof.canonicalize(standardizer)
-                # print(completed_proof)
-                # input("Completed proof, canonicalized ^^")
+                # print(search_leaf.working_proof)
+                # input("yielded proof ^^")
 
                 # here, try complete essentialless
                 completed_proof = search_leaf.complete_essentialless()
                 if completed_proof is None: continue
 
+                # print(completed_proof)
+                # input("completed proof ^^")
+
                 # check for proof
                 root_step = completed_proof.finalize(standardizer, db.rules)
 
-                if root_step is not None: return root_step
+                if root_step is not None:
+                    # print(root_step.tree_string())
+                    # input("finalized proof ^^")
+                    return root_step
 
             if perf_counter() > timeout: return None
 
@@ -172,8 +198,8 @@ if __name__ == "__main__":
     import src.metamathpy.setmm as ms
     import src.metamathpy.database as md
 
-    max_time = 60 # seconds
-    max_node_depth = 5
+    max_time = 10 # seconds
+    max_node_depth = 10
 
     # PL |- rules have at most 10 essentials, though multiple essentials could conceivably bind the same proof step.  that's still 10 unifications and "edges".
     # if every non-claim-hypothesis essential proof step is justified by 10 essentials, then # edges is 10 * (# nodes - # claim essentials) = 10 * max_node_depth
@@ -186,7 +212,7 @@ if __name__ == "__main__":
     do_reload = True
     do_skip = True
     exclude_list = ms.new_usage_discouraged()
-    start_from_goal_index = 782 # (d3->2) #175 jad # 1374 syl332anc took 24223s before unify_with_filter
+    start_from_goal_index = 0 # (d3->2) #175 jad # 1374 syl332anc took 24223s before unify_with_filter
     stop_after = -1
 
     db = ms.load_pl()

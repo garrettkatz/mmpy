@@ -33,6 +33,10 @@ class WorkingProof:
             lines.append(f"{i}: {j}{list(d)} |- " + " ".join(self.term_manager.serialize(a)))
         return "\n".join(lines)
 
+    def copy(self):
+        return WorkingProof(
+            self.claim, self.assertions, list(self.justifications), list(self.dependencies), list(self.used), set(self.variables), self.term_manager)
+
     def initialize(claim, consequent, essentials, offset, proof_size, term_manager):
         """
         Initialize working proof for claim
@@ -389,12 +393,67 @@ class RuleIndex:
                 yield sub_working_proof
 
         # essential-full rules
+        low_essentials = max(low_essentials, 1) # don't duplicate essential-less yields from trie
 
         # dont yield if no rules exist in this range
         if (low_essentials, max_essentials) not in self.essentials_variables: return
         variables = self.essentials_variables[(low_essentials, max_essentials)] | working_proof.variables
 
-        # if low_essentials==0, doesnt this duplicating work?
+        yield from working_proof.essential_unifications(self.essentials_trie[(low_essentials, max_essentials)], step_depth, variables, use_quota=min_new_usages)
+
+    @profile
+    def consequent_specific_unifications_defer(self, working_proof, step_depth, min_new_usages, min_essentials, max_essentials):
+        """
+        Yields substituted working proofs after unifying with rule index
+        Only yields results with at least min_new_usages new usages
+        Only yields results using rules with between (min,max) essentials
+        Unifies rule consequents with working_proof.assertions[step_depth] and hypotheses with working_proof.assertions[:step_depth]
+        """
+
+        # you need at least min_new_usages essentials to hit usage quota
+        low_essentials = max(min_essentials, min_new_usages)
+
+        if low_essentials == 0:
+            # defer to completion after top-level yield
+            sub_working_proof = working_proof.copy() # necessary?
+            yield sub_working_proof # leave justification as "" for completion later while step_depth increases
+
+        low_essentials = max(low_essentials, 1) # don't duplicate essential-less yields from trie
+
+        # dont yield if no rules exist in this range
+        if (low_essentials, max_essentials) not in self.consequent_variables: return
+        variables = self.consequent_variables[(low_essentials, max_essentials)] | working_proof.variables
+
+        conclusion = working_proof.assertions[step_depth]
+        for (sub, path_term, data) in self.consequent_trie[(low_essentials, max_essentials)].unifications_with(conclusion, variables):
+            # applicable rules without essentials
+            for (label, _) in data[0]:
+                sub_working_proof = working_proof.substitute(sub, variables)
+                sub_working_proof.justifications[step_depth] = label
+                yield sub_working_proof
+            # applicable rules with essentials
+            # print(f"consequent-specific unified {' '.join(working_proof.term_manager.serialize(path_term))} with step {step_depth}")
+            yield from working_proof.essential_unifications(data[1], step_depth, variables, sub, use_quota=min_new_usages)
+
+    @profile
+    def consequent_agnostic_unifications_defer(self, working_proof, step_depth, min_new_usages, min_essentials, max_essentials):
+
+        # you need at least min_new_usages essentials to hit usage quota
+        low_essentials = max(min_essentials, min_new_usages)
+
+        # essential-less rules, unless low_essentials is > 0
+        if low_essentials == 0:
+            # defer to completion after top-level yield
+            sub_working_proof = working_proof.copy() # necessary?
+            yield sub_working_proof # leave justification as "" for completion later while step_depth increases
+
+        # essential-full rules
+        low_essentials = max(low_essentials, 1) # don't duplicate essential-less yields from trie
+
+        # dont yield if no rules exist in this range
+        if (low_essentials, max_essentials) not in self.essentials_variables: return
+        variables = self.essentials_variables[(low_essentials, max_essentials)] | working_proof.variables
+
         yield from working_proof.essential_unifications(self.essentials_trie[(low_essentials, max_essentials)], step_depth, variables, use_quota=min_new_usages)
 
 if __name__ == "__main__":
