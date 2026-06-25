@@ -212,7 +212,7 @@ if __name__ == "__main__":
     do_reload = True
     do_skip = True
     exclude_list = ms.new_usage_discouraged()
-    start_from_goal_index = 0 # (d3->2) #175 jad # 1374 syl332anc took 24223s before unify_with_filter
+    start_from_goal_index = 1019 # (d3->2) #175 jad # 1374 syl332anc took 24223s before unify_with_filter
     stop_after = -1
 
     db = ms.load_pl()

@@ -113,6 +113,15 @@ new proof (7 steps): wph wps wch w3a wph wch wa wps wph wps wch 3anan12 biancomi
 
 ======= Officially shorter, pull request not submitted yet =========
 
+ifpdfbi
+old proof (16 steps): wph wps wi wps wph wi wa wph wps wi wph wn wps wn wi wa wph wps wb wph wps wps wn wif wps wph wi wph wn wps wn wi wph wps wi wps wph con34b anbi2i wph wps dfbi2 wph wps wps wn dfifp2 3bitr4i
+new proof (12 steps): wph wps wb wph wps wa wph wn wps wn wa wo wph wps wps wn wif wph wps dfbi3 wph wps wps wn df-ifp bitr4i
+new: ( wb wa wn wo wif dfbi3 df-ifp bitr4i )                ABCABDAEBEZDFABKGABHABKIJ
+old: ( wi wa wn wb wif con34b anbi2i dfbi2 dfifp2 3bitr4i ) ABCZBACZDMAEBEZCZDABFABOGNPMBAHIABJABOKL
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or wif df-ifp
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or wif df-ifp
+
+
 sylnbi
 old proof (9 steps): wph wn wps wn wch wph wps sylnbi.1 notbii sylnbi.2 sylbi
 new proof (7 steps): wps wph wch wph wps sylnbi.1 biimpri sylnbi.2 nsyl5
@@ -318,6 +327,10 @@ new normal proof: wph wph wn wps wph wn wps wo wb wph wps wph wn wps wo wb pm2.2
 old normal proof: wph wph wn wn wps wph wn wps wo wb wph notnot wph wn wps biorf syl
 
 uniforl 10min:
+
+3jca
+old proof (13 steps): wph wps wch wa wth wa wps wch wth w3a wph wps wch wth 3jca.1 3jca.2 3jca.3 jca31 wps wch wth df-3an sylibr
+new proof (11 steps): wph wps wch wth wps wch wth w3a 3jca.1 3jca.2 3jca.3 wps wch wth wps wch wth w3a wps wch wth w3a id 3expa syl21anc
 
 ==========
 
