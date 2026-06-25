@@ -198,7 +198,7 @@ if __name__ == "__main__":
     import src.metamathpy.setmm as ms
     import src.metamathpy.database as md
 
-    max_time = 10 # seconds
+    max_time = 10*60 # seconds
     max_node_depth = 10
 
     # PL |- rules have at most 10 essentials, though multiple essentials could conceivably bind the same proof step.  that's still 10 unifications and "edges".
@@ -229,7 +229,8 @@ if __name__ == "__main__":
             novel = set()
             short = set()
 
-        new_attempt = new_proved = new_novel = new_short = 0
+        new_attempt = new_proved = new_novel = 0
+        new_short = set()
 
         for gl, goal_label in enumerate(goal_labels):
             if gl < start_from_goal_index: continue
@@ -237,7 +238,7 @@ if __name__ == "__main__":
             if new_attempt == stop_after: break
             new_attempt += 1
 
-            print(f"\n *** attempting {goal_label} ({gl} of {len(goal_labels)}). proved : novel : short (new) = {len(goal_proofs)} ({new_proved}) : {len(novel)} ({new_novel}) : {len(short)} ({new_short}) ***\n")
+            print(f"\n *** attempting {goal_label} ({gl} of {len(goal_labels)}). proved : novel : short (new) = {len(goal_proofs)} ({new_proved}) : {len(novel)} ({new_novel}) : {len(short)} ({len(new_short)}) ***\n")
             start_time = perf_counter()
 
             claim = db.rules[goal_label]
@@ -288,7 +289,7 @@ if __name__ == "__main__":
                 print(f"total time: {total_time:.3f}s")
                 if new_size < old_size:
                     short.add(goal_label)
-                    new_short += 1
+                    new_short.add(goal_label)
                     print("You found one!!!")
                     # input('__')
 
@@ -305,6 +306,10 @@ if __name__ == "__main__":
 
             with open("ufrl.pkl","wb") as f: pk.dump((goal_times, goal_proofs, novel, short), f)
 
+        print("NEW SHORT")
+        print(new_short)
+        input('..')
+
     with open("ufrl.pkl","rb") as f: (goal_times, goal_proofs, novel, short) = pk.load(f)
 
     # reload for original compressed proofs
@@ -312,8 +317,14 @@ if __name__ == "__main__":
 
     print(f"Grand total time = {sum(goal_times.values())}s, {len(goal_proofs)} of {len(goal_times)} proved, {len(novel)} novel, {len(short)} short")
 
-    if len(short) > 0:
-        print("short list:")
+    if do_run:
+        short_list = new_short
+    else:
+        short_list = short
+
+    if len(short_list) > 0:
+        if do_run: print("new short list:")
+        else: print("short list:")
         for label in short:
             old_root, _ = mp.verify_compressed_proof(db, db.rules[label])
             old_normal_proof = old_root.normal_proof()

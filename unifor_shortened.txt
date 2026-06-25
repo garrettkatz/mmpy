@@ -60,7 +60,23 @@ new proof (9 steps): wph wps wet wch wth wta wph wps wch wth wet ad5ant.1 ad4ant
 ( wa ad4ant134 adantlr ) AEHBHCDFABCDEGIJ
 ( ad4ant124 adantl3r ) ABFCDEABCDFGHI
 
-======= Officially shorter, pull request not submitted yet =========
+3jaao
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or w3o w3a df-3or df-3an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or w3o w3a df-3or df-3an
+old proof (18 steps): wph wth wet w3a wps wch wta wze wph wth wps wch wi wet 3jaao.1 3ad2ant1 wth wph wta wch wi wet 3jaao.2 3ad2ant2 wet wph wze wch wi wth 3jaao.3 3ad2ant3 3jaod
+new proof (17 steps): wph wps wch wi wth wta wch wi wet wze wch wi wps wta wze w3o wch wi 3jaao.1 3jaao.2 3jaao.3 wps wch wta wze 3jao syl3an
+( w3a wi 3ad2ant1 3ad2ant2 3ad2ant3 3jaod ) ADFKBCEGADBCLFHMDAECLFINFAGCLDJOP
+( wi w3o 3jao syl3an ) ABCKDECKFGCKBEGLCKHIJBCEGMN
+77 -> 50
+
+3jaoi
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or w3o w3a df-3or df-3an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or w3o w3a df-3or df-3an
+old proof (16 steps): wph wps wi wch wps wi wth wps wi w3a wph wch wth w3o wps wi wph wps wi wch wps wi wth wps wi 3jaoi.1 3jaoi.2 3jaoi.3 3pm3.2i wph wps wch wth 3jao ax-mp
+new proof (14 steps): wph wch wth w3o wps wi wph wps wi wch wps wi wth wps wi 3jaoi.1 3jaoi.2 3jaoi.3 wph wps wch wth 3jaob mpbir3an
+( wi w3a w3o 3pm3.2i 3jao ax-mp ) ABHZCBHZDBHZIACDJBHNOPEFGKABCDLM
+( w3o wi 3jaob mpbir3an ) ACDHBIABICBIDBIEFGABCDJK
+66 -> 50
 
 label imbibi: 3994
   $( The antecedent of one side of a biconditional can be moved out of the
@@ -95,23 +111,7 @@ new proof (7 steps): wph wps wch w3a wph wch wa wps wph wps wch 3anan12 biancomi
 ( w3a wa df-3an an32 bitri ) ABCDABECEACEBEABCFABCGH
 ( w3a wa 3anan12 biancomi ) ABCDACEBABCFG
 
-3jaao
-old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or w3o w3a df-3or df-3an
-new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or w3o w3a df-3or df-3an
-old proof (18 steps): wph wth wet w3a wps wch wta wze wph wth wps wch wi wet 3jaao.1 3ad2ant1 wth wph wta wch wi wet 3jaao.2 3ad2ant2 wet wph wze wch wi wth 3jaao.3 3ad2ant3 3jaod
-new proof (17 steps): wph wps wch wi wth wta wch wi wet wze wch wi wps wta wze w3o wch wi 3jaao.1 3jaao.2 3jaao.3 wps wch wta wze 3jao syl3an
-( w3a wi 3ad2ant1 3ad2ant2 3ad2ant3 3jaod ) ADFKBCEGADBCLFHMDAECLFINFAGCLDJOP
-( wi w3o 3jao syl3an ) ABCKDECKFGCKBEGLCKHIJBCEGMN
-77 -> 50
-
-3jaoi
-old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or w3o w3a df-3or df-3an
-new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or w3o w3a df-3or df-3an
-old proof (16 steps): wph wps wi wch wps wi wth wps wi w3a wph wch wth w3o wps wi wph wps wi wch wps wi wth wps wi 3jaoi.1 3jaoi.2 3jaoi.3 3pm3.2i wph wps wch wth 3jao ax-mp
-new proof (14 steps): wph wch wth w3o wps wi wph wps wi wch wps wi wth wps wi 3jaoi.1 3jaoi.2 3jaoi.3 wph wps wch wth 3jaob mpbir3an
-( wi w3a w3o 3pm3.2i 3jao ax-mp ) ABHZCBHZDBHZIACDJBHNOPEFGKABCDLM
-( w3o wi 3jaob mpbir3an ) ACDHBIABICBIDBIEFGABCDJK
-66 -> 50
+======= Officially shorter, pull request not submitted yet =========
 
 sylnbi
 old proof (9 steps): wph wn wps wn wch wph wps sylnbi.1 notbii sylnbi.2 sylbi
@@ -174,7 +174,7 @@ old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an
 new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an
 old normal proof: wph wps wch wa wa wps wph wa wch wa wch wps wph wa wa wps wph wch an21 wps wph wa wch ancom bitr3i
 new normal proof: wph wps wch wa wa wch wps wph wa wps wch wa wps wch wph wps wch wa biid bianassc biancomi
-( wa an21 ancom bitr3i ) ABCDDBADZCDCHDBACEHCFG
+( wa an21 ancom bitr3i )      ABCDDBADZCDCHDBACEHCFG
 ( wa biid bianassc biancomi ) ABCDZDCBADHBCAHEFG
 
 label adantl4r:
@@ -208,6 +208,39 @@ old proof (9 steps): wph wps wi wps wi wps wph wi wph wps wi wph wi wph wph wps 
 new proof (8 steps): wph wps wi wps wps wph wi wph wi wph wps wps wph wi pm2.521g2 wps wph pm2.27 ja
 ( wi imim1 peirce syl6 ) ABCZBCBACGACAGBADABEF
 ( wi pm2.521g2 pm2.27 ja ) ABCBBACZACABGDBAEF
+
+syld3an1
+old proof (11 steps): wch wps wth w3a wph wps wth wta syld3an1.1 wch wps wth simp2 wch wps wth simp3 syld3an1.2 syl3anc
+new proof (10 steps): wph wch wps wth w3a wta syld3an1.1 wph wps wth wta wch syld3an1.2 3adant3r1 mpancom
+old: ( w3a simp2 simp3 syl3anc ) CBDHABDEFCBDICBDJGK
+new: ( w3a 3adant3r1 mpancom ) ACBDHEFABDECGIJ
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+
+label mp3anl2:
+new normal proof: wph wch wa wph wps wch w3a wth wta wph wps wch wph wps wch w3a mp3anl2.1 wph wps wch w3a id mp3an2 mp3anl2.2 sylan
+old normal proof: wph wch wa wth wta wph wps wch wth wta wi mp3anl2.1 wph wps wch w3a wth wta mp3anl2.2 ex mp3an2 imp
+new: ( wa w3a id mp3an2 sylan ) ACHABCIZDEABCMFMJKGL
+old: ( wa wi w3a ex mp3an1 imp ) BCHDEABCDEIFABCJDEGKLM
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+
+label biantr:
+new normal proof: wph wps wb wph wps wch wps wb wch wph wps wb id wch wps bicom1 sylan9bb
+old normal proof: wch wps wb wph wch wb wph wps wb wch wps wb wch wps wph wch wps wb id bibi2d biimparc
+new: ( wb id bicom1 sylan9bb ) ABDZABCBDCHECBFG
+old: ( wb id bibi2d biimparc ) CBDZACDABDHCBAHEFG
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an
+
+mp3an1
+old normal proof (9 steps): wph wps wch wa wth mp3an1.1 wph wps wch wth mp3an1.2 3expb mpan
+new normal proof (8 steps): wph wps wch wth mp3an1.1 wph wps wch wth mp3an1.2 3expa mpanl1
+new: ( 3expa mpanl1 ) ABCDEABCDFGH
+old: ( wa 3expb mpan ) ABCGDEABCDFHI
+new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+
 
 ======= Not officially shorter =========
 
@@ -256,86 +289,35 @@ new normal proof: wph wn wps wb wph wn wps wn wb wph wps wb wph wn wps pm5.18 wp
 ( wb wn xor3 con2bi bicom 3bitrri ) ABCDABDCBADZCIBCABEABFBIGH
 ( wn wb pm5.18 notbi xchbinxr ) ACZBDHBCDABDHBEABFG
 
+impbi
+old proof: ( wi wb wn df-bi simprim ax-mp expi ) ABCZBACZABDZLJKECEZCZMLCZECEOABFNOGHI
+new proof: ( wi wb wn df-bi ax-1 mt3 expi )      ABCZBACZABDZJKECEZLCZLMCZNEZCABFPOGHI
+old ax: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi
+new ax: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi
+
 
 ======= Compression not checked yet, axiom usage not checked yet ========
 check axiom usage before/after: sh tr looinv /ax
 
-unifort max depth 2:
+uniforl 10/60s timeout (some repeats):
 
-syld3an1
-old proof (11 steps): wch wps wth w3a wph wps wth wta syld3an1.1 wch wps wth simp2 wch wps wth simp3 syld3an1.2 syl3anc
-new proof (10 steps): wph wch wps wth w3a wta syld3an1.1 wph wps wth wta wch syld3an1.2 3adant3r1 mpancom
-
-mp3an1
-old normal proof (9 steps): wph wps wch wa wth mp3an1.1 wph wps wch wth mp3an1.2 3expb mpan
-new normal proof (8 steps): wph wps wch wth mp3an1.1 wph wps wch wth mp3an1.2 3expa mpanl1
-new: ( 3expa mpanl1 )  ABCDEABCDFGH
-old: ( wa 3expb mpan ) ABCGDEABCDFHI
-
-
-unifor max depth 3:
-
-unifort max depth 3:
-
-uniforl 60s timeout (some repeats):
-
-label syld3an1:
-new normal proof: wph wch wps wth w3a wta syld3an1.1 wph wps wth wta wch syld3an1.2 3adant3r1 mpancom
-old normal proof: wch wps wth w3a wph wps wth wta syld3an1.1 wch wps wth simp2 wch wps wth simp3 syld3an1.2 syl3anc
-label 3jaoi:
-new normal proof: wph wch wth w3o wps wi wph wps wi wch wps wi wth wps wi 3jaoi.1 3jaoi.2 3jaoi.3 wph wps wch wth 3jaob mpbir3an
-old normal proof: wph wps wi wch wps wi wth wps wi w3a wph wch wth w3o wps wi wph wps wi wch wps wi wth wps wi 3jaoi.1 3jaoi.2 3jaoi.3 3pm3.2i wph wps wch wth 3jao ax-mp
-label mp3an1:
-new normal proof: wph wps wch wth mp3an1.1 wph wps wch wth mp3an1.2 3expa mpanl1
-old normal proof: wph wps wch wa wth mp3an1.1 wph wps wch wth mp3an1.2 3expb mpan
-label ad5ant125:
-new normal proof: wph wps wa wch wth wta wet wph wps wch wth ad5ant.1 3expa ad4ant14
-old normal proof: wph wps wa wta wet wch wth wph wps wa wch wth wi wta wet wph wps wch wth ad5ant.1 3expia 2a1d imp41
-label biantr:
-new normal proof: wph wps wb wph wps wch wps wb wch wph wps wb id wch wps bicom1 sylan9bb
-old normal proof: wch wps wb wph wch wb wph wps wb wch wps wb wch wps wph wch wps wb id bibi2d biimparc
-label pm2.65da:
-new normal proof: wph wps wph wps wa wch pm2.65da.1 pm2.65da.2 pm2.65i imnani
-old normal proof: wph wps wch wph wps wch pm2.65da.1 ex wph wps wch wn pm2.65da.2 ex pm2.65d
-label 3jaao:
-new normal proof: wph wps wch wi wth wta wch wi wet wze wch wi wps wta wze w3o wch wi 3jaao.1 3jaao.2 3jaao.3 wps wch wta wze 3jao syl3an
-old normal proof: wph wth wet w3a wps wch wta wze wph wth wps wch wi wet 3jaao.1 3ad2ant1 wth wph wta wch wi wet 3jaao.2 3ad2ant2 wet wph wze wch wi wth 3jaao.3 3ad2ant3 3jaod
-label pm4.57:
-new normal proof: wph wps wo wph wn wps wn wa wph wps ioran con1bii
-old normal proof: wph wps wo wph wn wps wn wa wn wph wps oran bicomi
-label mp3anl2:
-new normal proof: wph wch wa wph wps wch w3a wth wta wph wps wch wph wps wch w3a mp3anl2.1 wph wps wch w3a id mp3an2 mp3anl2.2 sylan
-old normal proof: wph wch wa wth wta wph wps wch wth wta wi mp3anl2.1 wph wps wch w3a wth wta mp3anl2.2 ex mp3an2 imp
-label biortn:
-new normal proof: wph wph wn wps wph wn wps wo wb wph wps wph wn wps wo wb pm2.24 wph wn wps biorf pm2.61d1
-old normal proof: wph wph wn wn wps wph wn wps wo wb wph notnot wph wn wps biorf syl
 label mp3anl3:
 new normal proof: wph wps wa wph wps wch w3a wth wta wph wps wch wph wps wch w3a mp3anl3.1 wph wps wch w3a id mp3an3 mp3anl3.2 sylan
 old normal proof: wph wps wa wth wta wph wps wch wth wta wi mp3anl3.1 wph wps wch w3a wth wta mp3anl3.2 ex mp3an3 imp
-label exmidd:
-new normal proof: wph wps wps wn wph wps wn idd orrd
-old normal proof: wps wps wn wo wph wps exmid a1i
+
 label mp3an1i:
 new normal proof: wch wth wa wps wch wth w3a wph wta wps wch wth wps wch wth w3a mp3an1i.1 wps wch wth w3a id mp3an1 mp3an1i.2 syl5
 old normal proof: wch wth wa wph wta wps wch wth wph wta wi mp3an1i.1 wph wps wch wth w3a wta mp3an1i.2 com12 mp3an1 com12
+
 label mp3anl1:
 new normal proof: wps wch wa wph wps wch w3a wth wta wph wps wch wph wps wch w3a mp3anl1.1 wph wps wch w3a id mp3an1 mp3anl1.2 sylan
 old normal proof: wps wch wa wth wta wph wps wch wth wta wi mp3anl1.1 wph wps wch w3a wth wta mp3anl1.2 ex mp3an1 imp
-label ad5ant124:
-new normal proof: wph wps wa wch wth wta wet wph wps wch wth ad5ant.1 3expa ad4ant13
-old normal proof: wph wps wa wta wa wch wa wth wet wph wps wch wth wta ad5ant.1 ad4ant124 adantr
-label ad5ant135:
-new normal proof: wph wps wet wch wth wta wph wps wch wth wet ad5ant.1 ad4ant124 adantl3r
-old normal proof: wph wta wa wps wa wch wth wet wph wps wch wth wta ad5ant.1 ad4ant134 adantlr
-label syl21anbrc:
-new normal proof: wph wps wch wa wth wta wph wps wch syl21anbrc.1 syl21anbrc.2 jca syl21anbrc.3 syl21anbrc.4 sylanbrc
-old normal proof: wph wps wch wa wth wa wta wph wps wch wth syl21anbrc.1 syl21anbrc.2 syl21anbrc.3 jca31 syl21anbrc.4 sylibr
-label ad5ant134:
-new normal proof: wph wps wch wet wth wta wph wps wch wth wet ad5ant.1 ad4ant123 adantl3r
-old normal proof: wph wta wa wps wa wch wa wth wet wph wps wch wth wta ad5ant.1 ad4ant134 adantr
-label 3anan32:
-new normal proof: wph wps wch w3a wph wch wa wps wph wps wch 3anan12 biancomi
-old normal proof: wph wps wch w3a wph wps wa wch wa wph wch wa wps wa wph wps wch df-3an wph wps wch an32 bitri
+
+label biortn:
+new normal proof: wph wph wn wps wph wn wps wo wb wph wps wph wn wps wo wb pm2.24 wph wn wps biorf pm2.61d1
+old normal proof: wph wph wn wn wps wph wn wps wo wb wph notnot wph wn wps biorf syl
+
+uniforl 10min:
 
 ==========
 
