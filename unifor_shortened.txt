@@ -348,7 +348,7 @@ new normal proof: wph wps wa wch wth wa wa wph wch wa wth wps wa wa wph wch wth 
 old normal proof: wph wps wa wch wth wa wa wph wps wch wth wa wa wa wph wch wth w3a wps wa wph wps wch wth wa anass wph wch wth wa wa wps wa wph wch wth wa wps wa wa wph wch wth w3a wps wa wph wps wch wth wa wa wa wph wch wth wa wps anass wph wch wth w3a wph wch wth wa wa wps wph wch wth 3anass anbi1i wps wch wth wa wa wch wth wa wps wa wph wps wch wth wa ancom anbi2i 3bitr4ri bitri
 new ax: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
 old ax: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
-new: ( wa w3a an42 3an4anass bitr4i )                           ABECDEEACEDBEEACDFBEABCDGACDBHI
+new: ( wa w3a an42 3an4anass bitr4i ) ABECDEEACEDBEEACDFBEABCDGACDBHI
 old: ( wa w3a anass 3anass anbi1i ancom anbi2i 3bitr4ri bitri ) ABECDEZEABNEZEZACDFZBEZABNGANEZBEANBEZERPANBGQSBACDHIOTABNJKLM
 
 ==========
