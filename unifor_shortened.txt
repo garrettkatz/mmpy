@@ -304,6 +304,13 @@ new proof: ( wi wb wn df-bi ax-1 mt3 expi )      ABCZBACZABDZJKECEZLCZLMCZNEZCAB
 old ax: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi
 new ax: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi
 
+nanor
+old proof (11 steps): wph wps wnan wph wps wa wn wph wn wps wn wo wph wps df-nan wph wps ianor bitri
+new proof (10 steps): wph wps wnan wph wps wn wi wph wn wps wn wo wph wps dfnan2 wph wps wn imor bitri
+old: ( wnan wa wn wo df-nan ianor bitri ) ABCABDEAEBEFABGABHI
+new: ( wnan wn wi wo dfnan2 imor bitri )  ABCABDZEADJFABGAJHI
+old ax: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or wnan df-nan
+new ax: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or wnan df-nan
 
 ======= Compression not checked yet, axiom usage not checked yet ========
 check axiom usage before/after: sh tr looinv /ax
@@ -331,6 +338,18 @@ uniforl 10min:
 3jca
 old proof (13 steps): wph wps wch wa wth wa wps wch wth w3a wph wps wch wth 3jca.1 3jca.2 3jca.3 jca31 wps wch wth df-3an sylibr
 new proof (11 steps): wph wps wch wth wps wch wth w3a 3jca.1 3jca.2 3jca.3 wps wch wth wps wch wth w3a wps wch wth w3a id 3expa syl21anc
+
+ad5ant2345
+old proof (14 steps): wet wph wa wps wch wth wta wph wps wch wth wta wi wi wi wet wph wps wch wth wta ad5ant2345.1 exp41 adantl imp41
+new proof (13 steps): wet wph wa wps wa wph wps wa wch wth wta wph wps wph wps wa wet wph wps wa id adantll ad5ant2345.1 sylanl1
+
+4anpull2:
+new normal proof: wph wps wa wch wth wa wa wph wch wa wth wps wa wa wph wch wth w3a wps wa wph wps wch wth an42 wph wch wth wps 3an4anass bitr4i
+old normal proof: wph wps wa wch wth wa wa wph wps wch wth wa wa wa wph wch wth w3a wps wa wph wps wch wth wa anass wph wch wth wa wa wps wa wph wch wth wa wps wa wa wph wch wth w3a wps wa wph wps wch wth wa wa wa wph wch wth wa wps anass wph wch wth w3a wph wch wth wa wa wps wph wch wth 3anass anbi1i wps wch wth wa wa wch wth wa wps wa wph wps wch wth wa ancom anbi2i 3bitr4ri bitri
+new ax: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+old ax: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+new: ( wa w3a an42 3an4anass bitr4i )                           ABECDEEACEDBEEACDFBEABCDGACDBHI
+old: ( wa w3a anass 3anass anbi1i ancom anbi2i 3bitr4ri bitri ) ABECDEZEABNEZEZACDFZBEZABNGANEZBEANBEZERPANBGQSBACDHIOTABNJKLM
 
 ==========
 
