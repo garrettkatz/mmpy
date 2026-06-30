@@ -198,7 +198,7 @@ if __name__ == "__main__":
     import src.metamathpy.setmm as ms
     import src.metamathpy.database as md
 
-    max_time = 10*60 # seconds
+    max_time = 20*60 # seconds
     max_node_depth = 10
 
     # PL |- rules have at most 10 essentials, though multiple essentials could conceivably bind the same proof step.  that's still 10 unifications and "edges".
@@ -212,7 +212,7 @@ if __name__ == "__main__":
     do_reload = True
     do_skip = True
     exclude_list = ms.new_usage_discouraged()
-    start_from_goal_index = 1120 # (d3->2) #175 jad # 1374 syl332anc took 24223s before unify_with_filter
+    start_from_goal_index = 560 # (d3->2) # 102 con4 is just ax-3 but thats discouraged so will not terminate
     stop_after = -1
 
     db = ms.load_pl()

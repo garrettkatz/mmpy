@@ -1,10 +1,12 @@
 """
-Trie-like implementation of cterm set indexing structure
+Prefix Tree Term Indexer
 """
 try:
     profile
 except NameError:
     profile = lambda x: x
+
+import itertools as it
 
 import src.metamathpy.database as md
 import src.metamathpy.proof as mp
@@ -199,6 +201,111 @@ class TermTrieNode:
         # print("loopdone")
         return # end of def
 
+    @profile
+    def unifications_with_trie(self, other, variables, sub=None, self_lead=None, other_lead=None):
+        """
+        yield unifications of terms in self with terms in other (also a term trie)
+        assumes self and all terms in other trie are standardized apart
+        variables: set of integer ids representing substitutable variables
+        sub: substitution accumulator (defaults to empty)
+        self,other_lead: leading path term accumulators for self and other (default to empty)
+        yields accumulated (sub, self_lead, self_data, other_lead, other_data) for all successfully unifying term pairs in tries
+        """
+
+        ## defaults
+        if sub is None:
+            sub = {}
+        if self_lead is None:
+            self_lead = []
+        if other_lead is None:
+            other_lead = []
+
+        ## base cases
+
+        # yield if terms exist in both trees at current point (both nodes have data)
+        if self.data is not None and other.data is not None:
+            yield (sub, self_lead, self.data, other_lead, other.data)
+
+        # stop if either trie node is out of branches
+        if 0 in (len(self.branches), len(other.branches)):
+            return
+
+        ## recursive cases
+
+        # lazy substitutions on branch tokens
+        for (self_tok, self_n), self_child in self.branches.items():
+            if self_tok in sub:
+                # print(f"self_tok {self_tok} in sub {sub}")
+                self_subtrie = self_child.prepend(sub[self_tok])
+                yield from self_subtrie.unifications_with_trie(other, variables, sub, self_lead, other_lead)
+
+        for (other_tok, other_n), other_child in other.branches.items():
+            if other_tok in sub:
+                # print(f"other_tok {other_tok} in sub {sub}")
+                other_subtrie = other_child.prepend(sub[other_tok])
+                yield from self.unifications_with_trie(other_subtrie, variables, sub, self_lead, other_lead)
+
+
+        # non-lazy branch combinations
+        for ((self_tok, self_n), self_child), ((other_tok, other_n), other_child) in it.product(self.branches.items(), other.branches.items()):
+            if self_tok in sub or other_tok in sub: continue
+
+            # heads match
+            if (self_tok, self_n) == (other_tok, other_n):
+                yield from self_child.unifications_with_trie(other_child, variables, sub, self_lead + [[self_tok, self_n]], other_lead + [[other_tok, other_n]])
+
+            # self head can be replaced
+            elif self_tok in variables:
+
+                for replacement, node in other_child.look_ahead(other_n-1):
+
+                    # extract variable and replacement
+                    v = self_tok # variable integer id
+                    replacement = [[other_tok, other_n]] + replacement # include head
+                    replacement = mt.substitute(replacement, sub) # lazy substitution
+
+                    # print(f" {n}-step lookahead replacement {replacement} for variable {v}")
+
+                    # do not yield if v occurs in replcement
+                    if any(u==v for (u, _) in replacement):
+                        # print(f" occurs check failed")
+                        continue
+
+                    # otherwise incorporate into substitution and advance to tails
+                    new_sub = mt.compose_single(v, replacement, sub)
+                    # print(f" occurs check passed, new sub:")
+                    # print(new_sub)
+                    yield from self_child.unifications_with_trie(node, variables, new_sub, self_lead + [[self_tok, self_n]], other_lead + replacement)
+
+            # other head can be replaced
+            elif other_tok in variables:
+
+                for replacement, node in self_child.look_ahead(self_n-1):
+
+                    # extract variable and replacement
+                    v = other_tok # variable integer id
+                    replacement = [[self_tok, self_n]] + replacement # include head
+                    replacement = mt.substitute(replacement, sub) # lazy substitution
+
+                    # print(f" {n}-step lookahead replacement {replacement} for variable {v}")
+
+                    # do not yield if v occurs in replcement
+                    if any(u==v for (u, _) in replacement):
+                        # print(f" occurs check failed")
+                        continue
+
+                    # otherwise incorporate into substitution and advance to tails
+                    new_sub = mt.compose_single(v, replacement, sub)
+                    # print(f" occurs check passed, new sub:")
+                    # print(new_sub)
+                    yield from node.unifications_with_trie(other_child, variables, new_sub, self_lead + replacement, other_lead + [[other_tok, other_n]])
+
+            # at this point heads do unify, yield nothing and continue to next branch
+            else: continue # noop
+
+        # print("loopsdone")
+        return # end of def
+
 
 if __name__ == "__main__":
 
@@ -293,7 +400,7 @@ if __name__ == "__main__":
         ["-. ( ta -> ta )", ("ta",), ("wn",)],
         ["( -. ta -> ta )", ("ta",), ("wi",)],
         ["( -. ta -> ( ta -> ta ) )", ("ta",), ("wi",)],
-        ["( ta /\ et )", ("ta","et"), ()],
+        ["( ta /\\ et )", ("ta","et"), ()],
     ]
     trie_labels = [lab for (_,_,lab) in data]
     for (toks, variables, labels) in tests:
@@ -346,4 +453,7 @@ if __name__ == "__main__":
             assert mt.substitute(term, sub) == mt.substitute(path_term, sub)
 
     print(trie.tree_string(tm))
+
+    for (sub, lead1, data1, lead2, data2) in trie.unifications_with_trie(trie, trie_vars):
+        print(sub, ' '.join(tm.serialize(lead1)), data1, ' '.join(tm.serialize(lead2)), data2)
 
