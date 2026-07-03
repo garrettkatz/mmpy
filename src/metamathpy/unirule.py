@@ -237,6 +237,69 @@ class WorkingProof:
                 # print(next_trie.tree_string(subd_proof.term_manager))
                 yield from subd_proof.essential_unifications(next_trie, step_depth, variables, new_sub, new_dep_idx, use_quota)
 
+    def trieify(self, step_depth):
+        """
+        Returns term_trie of terms in working proof up to but excluding step_depth
+        """
+        root = TermTrieNode()
+        for i, term in enumerate(self.assertions[:step_depth]): root.incorporate(term, data=i)
+        return root
+
+    def essential_unifications_trie(self, nested_essential_trie, step_depth, variables, sub=None, dep_idx=(), use_quota=None):
+        """
+        version using term trie of self
+        builds new trie every iteration (consider in-place incorporate and remove?)
+        """
+
+        # defaults
+        if sub is None: sub = {}
+        if use_quota is None: use_quota = 0 # dont need to use any unless specified
+
+        # apply sub to working_proof
+        # print("pre-sub:")
+        # print(working_proof)
+        subd_proof = self.substitute(sub, variables)
+        # print("post-sub:")
+        # print(subd_proof)
+
+        subd_trie = subd_proof.trieify(step_depth)
+        for (new_sub, _, subd_trie_data, _, net_data) in subd_trie.unifications_with_trie(nested_essential_trie, variables, sub):
+
+            # unpack data
+            i = subd_trie_data
+            complete_rules, next_trie, max_remaining_rule_terms = net_data
+
+            # count new usages
+            new_dep_idx = dep_idx + (i,)
+            new_usage = sum(int((not u) and (a in new_dep_idx)) for (a,u) in enumerate(subd_proof.used))
+
+            # print(f"trying unis with step {i}: {' '.join(subd_proof.term_manager.serialize(subd_proof.assertions[i]))}")
+            # print(f"essential trie unification: sub={new_sub}")
+            # print(f"path term {' '.join(subd_proof.term_manager.serialize(path_term))}")
+            # print(f"with step {i}:")
+            # print(' '.join(subd_proof.term_manager.serialize(subd_proof.assertions[i])))
+            # print("finished labels:", [label for (label,_) in data[0]])
+
+            # only yield at this point if new usage meets quota
+            if new_usage >= use_quota:
+                for (label, consequent) in complete_rules:
+                    # replace step_depth assertion with consequent
+                    repd_proof = subd_proof.replace_assertion(step_depth, consequent, variables)
+                    # apply substitution
+                    repd_proof = repd_proof.substitute(new_sub, variables)
+                    repd_proof.justifications[step_depth] = label
+                    repd_proof.dependencies[step_depth] = new_dep_idx
+                    for di in new_dep_idx: repd_proof.used[di] = True
+                    yield repd_proof
+
+            # only recurse if enough terms left to meet quota
+            if new_usage + max_remaining_rule_terms < use_quota: continue
+
+            # print("recursing on next trie:")
+            # print(next_trie.tree_string(subd_proof.term_manager))
+            yield from subd_proof.essential_unifications_trie(next_trie, step_depth, variables, new_sub, new_dep_idx, use_quota)
+
+
 class RuleIndex:
     def __init__(self, rules, term_manager):
         """

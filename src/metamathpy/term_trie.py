@@ -7,6 +7,7 @@ except NameError:
     profile = lambda x: x
 
 import itertools as it
+import numpy as np
 
 import src.metamathpy.database as md
 import src.metamathpy.proof as mp
@@ -44,6 +45,13 @@ class TermTrieNode:
         if head not in self.branches:
             self.branches[head] = TermTrieNode()
         return self.branches[head].incorporate(term[1:], data)
+
+    def remove(self, term, data=None):
+        """
+        Removes term from self in-place
+        If data provided, only removes term when its corresponding node data matches
+        """
+        pass
 
     def look_ahead(self, n):
         """
@@ -210,7 +218,12 @@ class TermTrieNode:
         sub: substitution accumulator (defaults to empty)
         self,other_lead: leading path term accumulators for self and other (default to empty)
         yields accumulated (sub, self_lead, self_data, other_lead, other_data) for all successfully unifying term pairs in tries
+        path leads are mix of partially subd terms, not useful. just use data to get original term path
         """
+
+        # print(f" self, other leads:")
+        # print(np.array(self_lead).T)
+        # print(np.array(other_lead).T)
 
         ## defaults
         if sub is None:
@@ -245,13 +258,14 @@ class TermTrieNode:
                 other_subtrie = other_child.prepend(sub[other_tok])
                 yield from self.unifications_with_trie(other_subtrie, variables, sub, self_lead, other_lead)
 
-
         # non-lazy branch combinations
         for ((self_tok, self_n), self_child), ((other_tok, other_n), other_child) in it.product(self.branches.items(), other.branches.items()):
-            if self_tok in sub or other_tok in sub: continue
+            if (self_tok in sub) or (other_tok in sub): continue
 
             # heads match
-            if (self_tok, self_n) == (other_tok, other_n):
+            # if (self_tok, self_n) == (other_tok, other_n): # eg open parens can be unifiable but have distinct n's
+            if self_tok == other_tok:
+                # print(f" heads match: {self_tok}[:{self_n}] vs {other_tok}[:{other_n}]")
                 yield from self_child.unifications_with_trie(other_child, variables, sub, self_lead + [[self_tok, self_n]], other_lead + [[other_tok, other_n]])
 
             # self head can be replaced
@@ -259,14 +273,14 @@ class TermTrieNode:
 
                 for replacement, node in other_child.look_ahead(other_n-1):
 
-                    # extract variable and replacement
+                    # set up variable and replacement
                     v = self_tok # variable integer id
                     replacement = [[other_tok, other_n]] + replacement # include head
                     replacement = mt.substitute(replacement, sub) # lazy substitution
 
-                    # print(f" {n}-step lookahead replacement {replacement} for variable {v}")
+                    # print(f" other {other_n}-step lookahead replacement {replacement} for variable {v}")
 
-                    # do not yield if v occurs in replcement
+                    # do not yield if v occurs in replacement
                     if any(u==v for (u, _) in replacement):
                         # print(f" occurs check failed")
                         continue
@@ -282,14 +296,14 @@ class TermTrieNode:
 
                 for replacement, node in self_child.look_ahead(self_n-1):
 
-                    # extract variable and replacement
+                    # set up variable and replacement
                     v = other_tok # variable integer id
                     replacement = [[self_tok, self_n]] + replacement # include head
                     replacement = mt.substitute(replacement, sub) # lazy substitution
 
-                    # print(f" {n}-step lookahead replacement {replacement} for variable {v}")
+                    # print(f" self {self_n}-step lookahead replacement {replacement} for variable {v}")
 
-                    # do not yield if v occurs in replcement
+                    # do not yield if v occurs in replacement
                     if any(u==v for (u, _) in replacement):
                         # print(f" occurs check failed")
                         continue
@@ -457,3 +471,26 @@ if __name__ == "__main__":
     for (sub, lead1, data1, lead2, data2) in trie.unifications_with_trie(trie, trie_vars):
         print(sub, ' '.join(tm.serialize(lead1)), data1, ' '.join(tm.serialize(lead2)), data2)
 
+    trie1 = TermTrieNode()
+    trie2 = TermTrieNode()
+
+    trie1.incorporate(tm.parse("( ph -> ph )".split(), ("ph",)), "1")
+    trie1.incorporate(tm.parse("( ph -> ( ps -> ph ) )".split(), ("ph", "ps")), "2")
+
+    trie2.incorporate(tm.parse("( ta -> et )".split(), ("ta", "et")), "3")
+
+    trie_vars = {tm.encode(v) for v in ("ph", "ps", "ta", "et")}
+
+    print("\ncheckit\n")
+
+    print("trie1:")
+    print(trie1.tree_string(tm))
+    print("trie2:")
+    print(trie2.tree_string(tm))
+    print("\n")
+
+    for (sub, lead1, data1, lead2, data2) in trie1.unifications_with_trie(trie2, trie_vars):
+        print("\nresult:\n")
+        # print({tm.decode(v): ' '.join(tm.serialize(t)) for (v,t) in sub.items()}, ' '.join(tm.serialize(lead1)), data1, ' '.join(tm.serialize(lead2)), data2)
+        print({tm.decode(v): ' '.join(tm.serialize(t)) for (v,t) in sub.items()}, data1, data2)
+        print("\n")

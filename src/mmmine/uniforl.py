@@ -212,7 +212,7 @@ if __name__ == "__main__":
     do_reload = True
     do_skip = True
     exclude_list = ms.new_usage_discouraged()
-    start_from_goal_index = 560 # (d3->2) # 102 con4 is just ax-3 but thats discouraged so will not terminate
+    start_from_goal_index = 1001 # (d3->2) # 102 con4 is just ax-3 but thats discouraged so will not terminate
     stop_after = -1
 
     db = ms.load_pl()
