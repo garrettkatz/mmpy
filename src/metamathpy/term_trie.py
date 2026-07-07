@@ -27,24 +27,31 @@ class TermTrieNode:
             s.append(f"{prefix}{term_manager.decode(t)} [{t},:{n}] {cs}")
         return "\n".join(s)
 
-    def incorporate(self, term, data=None):
+    def incorporate(self, term, data=None, catch=False):
         """
         Incorporates term into self and returns associated node
         If data is not None:
             if node already has non-None data, error is raised
             otherwise, data is stored at node
+        If catch is True, assertion is silently skipped (at your own risk)
         """
 
         if len(term) == 0:
             if data is not None:
-                assert self.data is None
+                # if self.data is not None:
+                #     print("self.data = ", self.data)
+                #     print("DATA=", data)
+                #     breakpoint()
+                #     input('..')
+                if not catch:
+                    assert self.data is None
                 self.data = data
             return self
 
         head = tuple(term[0])
         if head not in self.branches:
             self.branches[head] = TermTrieNode()
-        return self.branches[head].incorporate(term[1:], data)
+        return self.branches[head].incorporate(term[1:], data, catch)
 
     def remove(self, term, data=None):
         """

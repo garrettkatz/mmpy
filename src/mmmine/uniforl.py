@@ -198,7 +198,7 @@ if __name__ == "__main__":
     import src.metamathpy.setmm as ms
     import src.metamathpy.database as md
 
-    max_time = 20*60 # seconds
+    max_time = 60 #20*60 # seconds
     max_node_depth = 10
 
     # PL |- rules have at most 10 essentials, though multiple essentials could conceivably bind the same proof step.  that's still 10 unifications and "edges".
@@ -209,15 +209,18 @@ if __name__ == "__main__":
     # max_edge_count = 7 # 30
 
     do_run = True
+    do_reprove = True # will try reproving already proved entries
     do_reload = True
     do_skip = True
-    exclude_list = ms.new_usage_discouraged()
-    start_from_goal_index = 1001 # (d3->2) # 102 con4 is just ax-3 but thats discouraged so will not terminate
-    stop_after = -1
+    exclude_list = ms.new_usage_discouraged() + [
+        "con4", # [102]con4 is just ax-3 but thats discouraged so will not terminate
+    ]
+    start_from_goal_index = 0
+    stop_after = 1
 
     db = ms.load_pl()
-    # goal_labels = ["id"]
-    goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p" and label[-3:] not in ("ALT", "OLD") and label not in exclude_list]
+    goal_labels = ["3jaoi"]
+    # goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p" and label[-3:] not in ("ALT", "OLD") and label not in exclude_list]
 
     if do_run:
 
@@ -257,6 +260,7 @@ if __name__ == "__main__":
 
             total_time = perf_counter()-start_time
             goal_times[goal_label] = total_time
+            print(f"ids spent {total_time:.0f}s ({total_time/60:.2f}min)")
 
             if proof_root is None:
                 print("Failure :(")

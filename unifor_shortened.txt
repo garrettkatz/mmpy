@@ -20,7 +20,7 @@ expt
 old proof (11 steps): wph wph wps wn wi wn wch wi wps wch wi wph wps wph wps wn wi wn wch wph wps pm3.2im imim1d com12
 new proof (10 steps): wph wps wph wps wn wi wn wph wps wn wi wn wch wi wch wph wps pm3.2im wph wps wn wi wn wch wi id syl9r
 ( wn wi pm3.2im imim1d com12 ) AABDEDZCEBCEABICABFGH
-( wn wi pm3.2im id     syl9r ) ABABDEDZICEZCABFJGH
+( wn wi pm3.2im id syl9r ) ABABDEDZICEZCABFJGH
 
 pm2.65i
 old proof (8 steps): wps wph wn wph wps pm2.65i.2 con2i wph wps pm2.65i.1 con3i pm2.61i
@@ -111,8 +111,6 @@ new proof (7 steps): wph wps wch w3a wph wch wa wps wph wps wch 3anan12 biancomi
 ( w3a wa df-3an an32 bitri ) ABCDABECEACEBEABCFABCGH
 ( w3a wa 3anan12 biancomi ) ABCDACEBABCFG
 
-======= Officially shorter, pull request not submitted yet =========
-
 ifpdfbi
 old proof (16 steps): wph wps wi wps wph wi wa wph wps wi wph wn wps wn wi wa wph wps wb wph wps wps wn wif wps wph wi wph wn wps wn wi wph wps wi wps wph con34b anbi2i wph wps dfbi2 wph wps wps wn dfifp2 3bitr4i
 new proof (12 steps): wph wps wb wph wps wa wph wn wps wn wa wo wph wps wps wn wif wph wps dfbi3 wph wps wps wn df-ifp bitr4i
@@ -121,6 +119,15 @@ old: ( wi wa wn wb wif con34b anbi2i dfbi2 dfifp2 3bitr4i ) ABCZBACZDMAEBEZCZDAB
 old axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or wif df-ifp
 new axs: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an wo df-or wif df-ifp
 
+4anpull2:
+new normal proof: wph wps wa wch wth wa wa wph wch wa wth wps wa wa wph wch wth w3a wps wa wph wps wch wth an42 wph wch wth wps 3an4anass bitr4i
+old normal proof: wph wps wa wch wth wa wa wph wps wch wth wa wa wa wph wch wth w3a wps wa wph wps wch wth wa anass wph wch wth wa wa wps wa wph wch wth wa wps wa wa wph wch wth w3a wps wa wph wps wch wth wa wa wa wph wch wth wa wps anass wph wch wth w3a wph wch wth wa wa wps wph wch wth 3anass anbi1i wps wch wth wa wa wch wth wa wps wa wph wps wch wth wa ancom anbi2i 3bitr4ri bitri
+new ax: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+old ax: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
+new: ( wa w3a an42 3an4anass bitr4i ) ABECDEEACEDBEEACDFBEABCDGACDBHI
+old: ( wa w3a anass 3anass anbi1i ancom anbi2i 3bitr4ri bitri ) ABECDEZEABNEZEZACDFZBEZABNGANEZBEANBEZERPANBGQSBACDHIOTABNJKLM
+
+======= Officially shorter, pull request not submitted yet =========
 
 sylnbi
 old proof (9 steps): wph wn wps wn wch wph wps sylnbi.1 notbii sylnbi.2 sylbi
@@ -342,14 +349,6 @@ new proof (11 steps): wph wps wch wth wps wch wth w3a 3jca.1 3jca.2 3jca.3 wps w
 ad5ant2345
 old proof (14 steps): wet wph wa wps wch wth wta wph wps wch wth wta wi wi wi wet wph wps wch wth wta ad5ant2345.1 exp41 adantl imp41
 new proof (13 steps): wet wph wa wps wa wph wps wa wch wth wta wph wps wph wps wa wet wph wps wa id adantll ad5ant2345.1 sylanl1
-
-4anpull2:
-new normal proof: wph wps wa wch wth wa wa wph wch wa wth wps wa wa wph wch wth w3a wps wa wph wps wch wth an42 wph wch wth wps 3an4anass bitr4i
-old normal proof: wph wps wa wch wth wa wa wph wps wch wth wa wa wa wph wch wth w3a wps wa wph wps wch wth wa anass wph wch wth wa wa wps wa wph wch wth wa wps wa wa wph wch wth w3a wps wa wph wps wch wth wa wa wa wph wch wth wa wps anass wph wch wth w3a wph wch wth wa wa wps wph wch wth 3anass anbi1i wps wch wth wa wa wch wth wa wps wa wph wps wch wth wa ancom anbi2i 3bitr4ri bitri
-new ax: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
-old ax: wn wi ax-mp ax-1 ax-2 ax-3 wb df-bi wa df-an w3a df-3an
-new: ( wa w3a an42 3an4anass bitr4i ) ABECDEEACEDBEEACDFBEABCDGACDBHI
-old: ( wa w3a anass 3anass anbi1i ancom anbi2i 3bitr4ri bitri ) ABECDEZEABNEZEZACDFZBEZABNGANEZBEANBEZERPANBGQSBACDHIOTABNJKLM
 
 ==========
 

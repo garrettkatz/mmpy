@@ -237,14 +237,18 @@ class WorkingProof:
                 # print(next_trie.tree_string(subd_proof.term_manager))
                 yield from subd_proof.essential_unifications(next_trie, step_depth, variables, new_sub, new_dep_idx, use_quota)
 
+    @profile
     def trieify(self, step_depth):
         """
         Returns term_trie of terms in working proof up to but excluding step_depth
         """
         root = TermTrieNode()
-        for i, term in enumerate(self.assertions[:step_depth]): root.incorporate(term, data=i)
+        for i, term in enumerate(self.assertions[:step_depth]):
+            # catch=True here means if multiple steps are identical terms, only first is included in trie, for better or worse
+            root.incorporate(term, data=i, catch=True)
         return root
 
+    @profile
     def essential_unifications_trie(self, nested_essential_trie, step_depth, variables, sub=None, dep_idx=(), use_quota=None):
         """
         version using term trie of self
@@ -463,6 +467,66 @@ class RuleIndex:
         variables = self.essentials_variables[(low_essentials, max_essentials)] | working_proof.variables
 
         yield from working_proof.essential_unifications(self.essentials_trie[(low_essentials, max_essentials)], step_depth, variables, use_quota=min_new_usages)
+
+    @profile
+    def consequent_specific_unifications_trie(self, working_proof, step_depth, min_new_usages, min_essentials, max_essentials):
+        """
+        Yields substituted working proofs after unifying with rule index
+        Uses working_proof's term trie
+        Only yields results with at least min_new_usages new usages
+        Only yields results using rules with between (min,max) essentials
+        Unifies rule consequents with working_proof.assertions[step_depth] and hypotheses with working_proof.assertions[:step_depth]
+        """
+
+        # you need at least min_new_usages essentials to hit usage quota
+        low_essentials = max(min_essentials, min_new_usages)
+
+        # dont yield if no rules exist in this range
+        if (low_essentials, max_essentials) not in self.consequent_variables: return
+        variables = self.consequent_variables[(low_essentials, max_essentials)] | working_proof.variables
+
+        conclusion = working_proof.assertions[step_depth]
+        for (sub, path_term, data) in self.consequent_trie[(low_essentials, max_essentials)].unifications_with(conclusion, variables):
+
+            # unpack node data
+            complete_rules, next_trie, max_remaining_rule_terms = data
+
+            # applicable rules without essentials
+            for (label, _) in complete_rules:
+                sub_working_proof = working_proof.substitute(sub, variables)
+                sub_working_proof.justifications[step_depth] = label
+                yield sub_working_proof
+
+            # applicable rules with essentials
+            # print(f"consequent-specific unified {' '.join(working_proof.term_manager.serialize(path_term))} with step {step_depth}")
+            yield from working_proof.essential_unifications_trie(next_trie, step_depth, variables, sub, use_quota=min_new_usages)
+            # yield from working_proof.essential_unifications(next_trie, step_depth, variables, sub, use_quota=min_new_usages)
+
+    @profile
+    def consequent_agnostic_unifications_trie(self, working_proof, step_depth, min_new_usages, min_essentials, max_essentials):
+        # Uses working_proof's term trie
+
+        # you need at least min_new_usages essentials to hit usage quota
+        low_essentials = max(min_essentials, min_new_usages)
+
+        # essential-less rules, unless low_essentials is > 0
+        if low_essentials == 0:
+            variables = self.essentialless_variables | working_proof.variables
+            for (label, consequent) in self.essentialless_rules:
+                # replace step_depth assertion with consequent
+                sub_working_proof = working_proof.replace_assertion(step_depth, consequent, variables)
+                sub_working_proof.justifications[step_depth] = label
+                yield sub_working_proof
+
+        # essential-full rules
+        low_essentials = max(low_essentials, 1) # don't duplicate essential-less yields from trie
+
+        # dont yield if no rules exist in this range
+        if (low_essentials, max_essentials) not in self.essentials_variables: return
+        variables = self.essentials_variables[(low_essentials, max_essentials)] | working_proof.variables
+
+        yield from working_proof.essential_unifications_trie(self.essentials_trie[(low_essentials, max_essentials)], step_depth, variables, use_quota=min_new_usages)
+        # yield from working_proof.essential_unifications(self.essentials_trie[(low_essentials, max_essentials)], step_depth, variables, use_quota=min_new_usages)
 
     @profile
     def consequent_specific_unifications_defer(self, working_proof, step_depth, min_new_usages, min_essentials, max_essentials):
