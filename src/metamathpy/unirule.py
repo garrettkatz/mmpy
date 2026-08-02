@@ -135,7 +135,7 @@ class WorkingProof:
 
             # insert the proofs of floating hypotheses
             for f in rule.floatings:
-                dependencies[f.label] = p.term_manager.parse_proof(substitution[f.tokens[1]], steps)
+                dependencies[f.label] = p.term_manager.parse_proof(substitution[f.tokens[1]], steps, self.claim.mandatory, f.tokens[0])
 
             # save the step
             substitution = {v: p.term_manager.serialize(t) for (v,t) in substitution.items()}

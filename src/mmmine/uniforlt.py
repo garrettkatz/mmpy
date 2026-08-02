@@ -176,22 +176,22 @@ def ids(db, claim, entailment_rules, term_manager, max_proof_size, max_edge_coun
             search_root = SearchNode(db, claim, rule_index, initial_proof, offset, edge_count)
             for search_leaf in search_root.dfs(timeout=timeout):
 
-                # print(search_leaf.working_proof)
-                # input("yielded proof ^^")
+                print(search_leaf.working_proof)
+                input("yielded proof ^^")
 
                 # here, try complete essentialless
                 completed_proof = search_leaf.complete_essentialless()
                 if completed_proof is None: continue
 
-                # print(completed_proof)
-                # input("completed proof ^^")
+                print(completed_proof)
+                input("completed proof ^^")
 
                 # check for proof
                 root_step = completed_proof.finalize(standardizer, db.rules)
 
                 if root_step is not None:
-                    # print(root_step.tree_string())
-                    # input("finalized proof ^^")
+                    print(root_step.tree_string())
+                    input("finalized proof ^^")
                     return root_step
 
             if perf_counter() > timeout: return None
@@ -204,7 +204,7 @@ if __name__ == "__main__":
     import src.metamathpy.setmm as ms
     import src.metamathpy.database as md
 
-    max_time = 20*60 # seconds
+    max_time = 5 # seconds
     max_node_depth = 10
 
     # PL |- rules have at most 10 essentials, though multiple essentials could conceivably bind the same proof step.  that's still 10 unifications and "edges".
@@ -215,18 +215,19 @@ if __name__ == "__main__":
     # max_edge_count = 7 # 30
 
     do_run = True
-    do_reprove = False # will try reproving already proved entries
+    do_reprove = True # will try reproving already proved entries
     do_reload = True
     do_skip = True
     exclude_list = ms.new_usage_discouraged() + [
         "con4", # [102]con4 is just ax-3 but thats discouraged so will not terminate
     ]
     start_from_goal_index = 0
-    stop_after = -1
+    stop_after = 100
 
     db = ms.load_pl()
-    # goal_labels = ["3jaoi"]
-    goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p" and label[-3:] not in ("ALT", "OLD") and label not in exclude_list]
+    db = ms.load_to("trujust") # first test with some FOL definitions
+    goal_labels = ["trujust"]
+    # goal_labels = [label for (label, rule) in db.rules.items() if rule.consequent.tag == "$p" and label[-3:] not in ("ALT", "OLD") and label not in exclude_list]
 
     if do_run:
 
@@ -253,7 +254,10 @@ if __name__ == "__main__":
             claim = db.rules[goal_label]
             rules = db.rules_up_to(goal_label, exclude_list)
             if "|-" not in rules: rules["|-"] = []
-            term_manager = mt.TermManager(rules["wff"])
+            # print(list(rules.keys()))
+            # input('.')
+            # term_manager = mt.TermManager({"wff": rules["wff"]})
+            term_manager = mt.TermManager({tc: rules.get(tc, []) for tc in ("wff", "setvar", "class")}) # for FOL
 
             # rules["|-"] = [r for r in rules["|-"] if r.consequent.label in ("ex", "a1i", "pm5.21ndd")] # 783 premise selection
 
@@ -277,6 +281,7 @@ if __name__ == "__main__":
                 old_root, _ = mp.verify_compressed_proof(db, claim)
                 old_normal_proof = old_root.normal_proof()
                 new_normal_proof = proof_root.normal_proof()
+                print(new_normal_proof)
 
                 # new_size = len([s for s in proof_root.all_steps() if s.conclusion[0] == "|-"])
                 # old_size = len([s for s in old_root.all_steps() if s.conclusion[0] == "|-"])

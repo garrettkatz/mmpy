@@ -97,15 +97,17 @@ def singleton_term(int_id):
 class TermManager:
     def __init__(self, rules):
         """
-        rules: list of wff rules (rule index is its id)
+        rules[typecode] = list of parsing rules for that typecode
         """
         self.rules = rules
         self.encoder = {}
         self.decoder = {}
 
-        for rule in self.rules:
-            for token in rule.consequent.tokens[1:]:
-                self.encode(token)
+        # make sure all tokens appearing in rules are encoded
+        for rule_list in rules.values():
+            for rule in rule_list:
+                for token in rule.consequent.tokens[1:]:
+                    self.encode(token)
 
     def encode(self, token):
         """
@@ -155,20 +157,21 @@ class TermManager:
         """
         return [[self.encode(token), 1]]
 
-    def rule_term(self, rule_index):
+    def rule_term(self, rule_index, typecode="wff"):
         """
         Term for a rule with no nested structure
         """
-        rule_tokens = self.rules[rule_index].consequent.tokens[1:] # omit typecode
+        rule_tokens = self.rules[typecode][rule_index].consequent.tokens[1:] # omit typecode
         term = [[self.encode(token), 1] for token in rule_tokens]
         term[0][1] = len(term)
         return term
 
-    def parse(self, tokens, sentinels):
+    def parse(self, tokens, sentinels, typecode="wff"):
         """
         Determines if leading portion of tokens is parsable
             tokens: token sequence to parse
-            sentinels: tokens treated as parse leaves (typically variables)
+            sentinels: {token: typecode} of tokens treated as parse leaves (typically variables)
+            typecode: type of rules to try parsing
         returns parsed term or None if parse fails
         """
 
@@ -176,27 +179,29 @@ class TermManager:
         if len(tokens) == 0: return None
 
         # next token is a leaf
-        if tokens[0] in sentinels: return self.token_term(tokens[0])
+        if tokens[0] in sentinels and typecode == sentinels[tokens[0]]: return self.token_term(tokens[0])
 
         # next token starts a compound term, recurse
-        for rule_index in range(len(self.rules)):
-            term = self.parse_rule(rule_index, tokens, sentinels)
-            if term is not None: return term
+        for rule_index in range(len(self.rules[typecode])):
+            term = self.parse_rule(rule_index, tokens, sentinels, typecode)
+            if term is not None:
+                return term
 
         # no matching rules, parse failed
         return None
 
-    def parse_rule(self, rule_index, tokens, sentinels):
+    def parse_rule(self, rule_index, tokens, sentinels, typecode="wff"):
         """
         Determines if leading portion of tokens is parsable by particular rule
             rule_index: particular parsing rule to try
             tokens: token sequence to parse
-            sentinels: tokens treated as parse leaves (typically variables)
+            sentinels: {token: typecode} of tokens treated as parse leaves (typically variables)
+            typecode: type of rule list being indexed
         returns parsed term or None if parse fails
         """
 
         # extract rule and mandatory variables
-        rule = self.rules[rule_index]
+        rule = self.rules[typecode][rule_index]
 
         # process tokens left to right, building up substitution
         i = 0 # index in provided token sequence, not rule token sequence
@@ -209,8 +214,10 @@ class TermManager:
             # current rule token is mandatory variable
             if tok in rule.mandatory:
 
+                tok_type = rule.mandatory[tok]
+
                 # try parsing replacement sub-term
-                subterm = self.parse(tokens[i:], sentinels)
+                subterm = self.parse(tokens[i:], sentinels, tok_type)
                 if subterm is None: return None # parsing failed, rule does not apply
 
                 # update substitution with parsed subterm
@@ -228,7 +235,7 @@ class TermManager:
             else: i += 1
 
         # at this point the rule parsed successfully, form term and apply substitution
-        return substitute(self.rule_term(rule_index), substitution)
+        return substitute(self.rule_term(rule_index, typecode), substitution)
 
     def instantiate(self, tokens, variables, term):
         """
@@ -248,15 +255,16 @@ class TermManager:
                 i += 1
         return s
 
-    def parse_proof(self, term, steps):
+    def parse_proof(self, term, steps, sentinels, typecode="wff"):
         """
         Reconstruct the proof that the term is well-formed
         steps is a ProofStep dictionary to avoid duplicate subproofs
+        sentinels: {token: typecode} of tokens treated as parse leaves (typically variables)
         """
 
         if len(term) == 1:
             v = self.decode(term[0][0])
-            consequent = md.Statement('w'+v, '$a', ("wff", v), ())
+            consequent = md.Statement('w'+v, '$a', (typecode, v), ())
             rule = md.Rule(consequent, (), (), (), (v,))
             rule.finalize()
             conclusion = consequent.tokens
@@ -264,15 +272,19 @@ class TermManager:
                 steps[conclusion] = mp.ProofStep(consequent.tokens, rule)
             return steps[conclusion]
 
-        for rule in self.rules:
+        for rule in self.rules[typecode]:
             s = self.instantiate(rule.consequent.tokens[1:], rule.mandatory, term)
+            ^^this is the problem. with multiple typecodes instantiate is too simple; need something like parse_proof_rule helper (analogous to parse, parse_rule)
             if s is None: continue
+            print(' '.join(rule.consequent.tokens))
+            print(' '.join(self.serialize(term)))
+            print({v: ' '.join(self.serialize(t)) for (v,t) in s.items()})
 
-            conclusion = ("wff",) + self.serialize(term)
+            conclusion = (typecode,) + self.serialize(term)
             if conclusion not in steps:
                 dependencies = {}
                 for f in rule.floatings:
-                    dependencies[f.label] = self.parse_proof(s[f.tokens[1]], steps)
+                    dependencies[f.label] = self.parse_proof(s[f.tokens[1]], steps, sentinels, typecode=f.tokens[0])
                 substitution = {v: self.serialize(t) for (v,t) in s.items()}
                 steps[conclusion] = mp.ProofStep(conclusion, rule, dependencies, substitution)
             return steps[conclusion]
@@ -285,8 +297,8 @@ class TermManager:
             essentials[i]: (statement label, term) for rule's ith essential hypothesis
             mandatory: set of integer encodings of mandatory variables in rule
         """
-        consequent = self.parse(rule.consequent.tokens[1:], set(rule.mandatory.keys()))
-        essentials = [(h.label, self.parse(h.tokens[1:], set(rule.mandatory.keys()))) for h in rule.essentials]
+        consequent = self.parse(rule.consequent.tokens[1:], rule.mandatory)
+        essentials = [(h.label, self.parse(h.tokens[1:], rule.mandatory)) for h in rule.essentials]
         mandatory = {self.encode(t) for t in rule.mandatory.keys()}
         return (consequent, essentials, mandatory)
 
@@ -420,7 +432,7 @@ if __name__ == "__main__":
     t2 = substitute(t1, {0: t1})
     assert t2 == np.array([[1,1,0,0,1,0,0], [7,3,1,1,3,1,1]]).T.tolist()
 
-    tm = TermManager([rule for rule in rules["wff"] if rule.consequent.tag == "$a"])
+    tm = TermManager({"wff": [rule for rule in rules["wff"] if rule.consequent.tag == "$a"]})
     t0 = tm.rule_term(0)
     t1 = tm.rule_term(1)
     assert " ".join(tm.serialize(t0)) == "-. ph"
@@ -438,15 +450,15 @@ if __name__ == "__main__":
         ("( -. ph -> -. ( ps -> ph )", ["ph","ps"], False),
     ]:
         print(s)
-        t = tm.parse(s.split(), v)
+        t = tm.parse(s.split(), {x:"wff" for x in v})
         if r: 
             assert " ".join(tm.serialize(t)) == s
         else:
             assert t is None
 
-    t1 = tm.parse("( ph -> ps )".split(), ["ph","ps"])
-    t2 = tm.parse("( ph -> ph )".split(), ["ph"])
-    t3 = tm.parse("( ch -> -. ( ta -> ch ) )".split(), ["ch", "ta"])
+    t1 = tm.parse("( ph -> ps )".split(), {"ph":"wff","ps":"wff"})
+    t2 = tm.parse("( ph -> ph )".split(), {"ph":"wff"})
+    t3 = tm.parse("( ch -> -. ( ta -> ch ) )".split(), {"ch":"wff", "ta":"wff"})
 
     s = unify(t1, t3, set(map(tm.encode, ["ph","ps","ch","ta"])))
     assert s is not None
@@ -455,5 +467,13 @@ if __name__ == "__main__":
     s = unify(t2, t3, set(map(tm.encode, ["ph","ch","ta"])))
     assert s is None
 
+    # FOL parsing test
+    db = ms.load_to("trujust")
+    rules = db.rules_up_to("trujust")
+    term_manager = TermManager({tc: rules.get(tc, []) for tc in ("wff", "setvar", "class")})
+    rule = db.rules["trujust"]
+    result = term_manager.parse(rule.consequent.tokens[1:], rule.mandatory)
+    assert result is not None
+    assert term_manager.serialize(result) == rule.consequent.tokens[1:]
 
 

@@ -22,11 +22,11 @@ def load_ni(fpath = None):
 
 def load_pl(fpath = None):
 
-    # last label before any FOL (universal quantifier) is xorexmid, it is "rule" 2849 (including hypotheses)
+    # last label before any FOL (universal quantifier) is norass as of Aug 2 2026
     print('loading..')
     if fpath is None:
         fpath = os.path.join(os.environ["HOME"], "metamath", "set.mm")
-    db = md.parse(fpath, last_rule="xorexmid")
+    db = md.parse(fpath, last_rule="norass")
     return db
 
 def load_all(fpath = None):
