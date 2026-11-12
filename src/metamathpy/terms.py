@@ -2,6 +2,7 @@
 term is represented as [...,[ints[i], lens[i]],...,]
     ints[i] is integer id of token at position i
     lens[i] is length of subterm starting at position i
+        (but FOL grammar makes this ambiguous...: A. x x = x instance of A. x ph)
 """
 try:
     profile
@@ -274,7 +275,13 @@ class TermManager:
 
         for rule in self.rules[typecode]:
             s = self.instantiate(rule.consequent.tokens[1:], rule.mandatory, term)
+
             ^^this is the problem. with multiple typecodes instantiate is too simple; need something like parse_proof_rule helper (analogous to parse, parse_rule)
+            example problem: trujust: "A. x x = x" is instance of "A. X ph" but no () around x = x.
+            So at the beginning of "x = x", is the subterm length 1 or 3?
+            Both: 1 for the setvar formula "x", 3 for the wff "x = x".
+            Necessitate a fundamental re-rewrite of terms?
+
             if s is None: continue
             print(' '.join(rule.consequent.tokens))
             print(' '.join(self.serialize(term)))

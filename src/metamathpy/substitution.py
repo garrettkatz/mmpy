@@ -131,7 +131,7 @@ class Scheme:
         result = self.chunks[0]
         for (insertion, chunk) in zip(insertions, self.chunks[1:]):
             result = result + insertion + chunk
-        return result           
+        return result
 
     def matches(self, tokens):
         """
